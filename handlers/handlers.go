@@ -2,6 +2,7 @@ package handlers
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/qrlzvrn/Clozapinum/bd"
 )
 
 //MessageHandler - перехватывает простые текстовые сообщения и выдает конфиг ответного сообщения
@@ -24,6 +25,13 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			//
 		case "просмотреть":
 			//
+		case "Привет":
+			id := message.From.ID
+			conn := bd.ConnectToBD()
+			bd.CreateUser(conn, id)
+			msg = tgbotapi.NewMessage(message.Chat.ID, "Все ОК")
+			newKeyboard = nil
+			newText = nil
 		default:
 			//обработка сообщений польователей о названии, описании, дедлайну задачи или категории
 			//делаем запрос к бд и в зависимости от значения поля state решаем, что делать
