@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"log"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/qrlzvrn/Clozapinum/bd"
+	"github.com/qrlzvrn/Clozapinum/db"
 )
 
 //MessageHandler - перехватывает простые текстовые сообщения и выдает конфиг ответного сообщения
@@ -27,8 +29,14 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			//
 		case "Привет":
 			id := message.From.ID
-			conn := bd.ConnectToBD()
-			bd.CreateUser(conn, id)
+
+			conn, err := bd.ConnectToBD()
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer conn.Close()
+
+			db.CreateUser(conn, id)
 			msg = tgbotapi.NewMessage(message.Chat.ID, "Все ОК")
 			newKeyboard = nil
 			newText = nil
