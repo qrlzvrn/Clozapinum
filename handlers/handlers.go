@@ -5,6 +5,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/qrlzvrn/Clozapinum/db"
+	"github.com/qrlzvrn/Clozapinum/keyboard"
 )
 
 //MessageHandler - перехватывает простые текстовые сообщения и выдает конфиг ответного сообщения
@@ -15,22 +16,28 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 		cmd := message.Command()
 		switch cmd {
 		case "/start":
-			//
+			msg = tgbotapi.NewMessage(message.Chat.ID, "Добрый вечер, это поленая информация. Можете нажать на кнопки, если хотите, конечно")
+			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(message.Chat.ID, message.MessageID, keyboard.MainKeyboard)
+			newText = nil
 		case "/help":
-			//
+			msg = tgbotapi.NewMessage(message.Chat.ID, "Спешу на помощь, подождите немного, я сделаю все, что в моих силах")
+			newKeyboard = nil
+			newText = nil
 		default:
-			//
+			msg = tgbotapi.NewMessage(message.Chat.ID, "Простите, я так не умею :с")
+			newKeyboard = nil
+			newText = nil
 		}
 	} else {
 		switch message.Text {
 		case "создать":
-			//
+
 		case "просмотреть":
 			//
 		case "Привет":
 			id := message.From.ID
 
-			conn, err := bd.ConnectToBD()
+			conn, err := db.ConnectToBD()
 			if err != nil {
 				log.Fatal(err)
 			}
