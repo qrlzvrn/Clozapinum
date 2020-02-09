@@ -5,12 +5,12 @@ import (
 )
 
 //MainKeyboard - Клавиатура главного меню, расположеная внизу
-var MainKeyboard = tgbotapi.NewReplyKeyboard(
-	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("Добавить"),
+var MainKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Добавить", "add"),
 	),
-	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("Просмотреть"),
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Просмотреть", "ls"),
 	),
 )
 
@@ -26,17 +26,19 @@ var AddKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-//CreateKeyboarWithAllCategory - генерирует клавиатуру со всеми переданными категориями
+//CreateKeyboarWithAllCategories - генерирует клавиатуру со всеми переданными категориями
 //появляется после нажатия на Просмотреть или на связку Добавить + Задачу
-func CreateKeyboarWithAllCategory(categorys []string) tgbotapi.InlineKeyboardMarkup {
-	AllCategoryKeyboard := tgbotapi.InlineKeyboardMarkup{}
-	for _, category := range categorys {
+func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboardMarkup {
+	AllCategoriesKeyboard := tgbotapi.InlineKeyboardMarkup{}
+	for _, category := range categories {
+		id := category[0]
+		name := category[1]
 		var row []tgbotapi.InlineKeyboardButton
-		btn := tgbotapi.NewInlineKeyboardButtonData(category, category)
+		btn := tgbotapi.NewInlineKeyboardButtonData(name, id)
 		row = append(row, btn)
-		AllCategoryKeyboard.InlineKeyboard = append(AllCategoryKeyboard.InlineKeyboard, row)
+		AllCategoriesKeyboard.InlineKeyboard = append(AllCategoriesKeyboard.InlineKeyboard, row)
 	}
-	return AllCategoryKeyboard
+	return AllCategoriesKeyboard
 }
 
 // CreateTaskKeyboard - клавиатура отмены создания задачи
@@ -62,7 +64,7 @@ var CreateCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 var ChooseTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Выбрать", "choose"),
-		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListAllCategory"),
+		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToAllCategoryKeyboard"),
 	),
 )
 
