@@ -6,7 +6,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	db "github.com/qrlzvrn/Clozapinum/db"
-	"github.com/qrlzvrn/Clozapinum/keyboard"
+	keyboard "github.com/qrlzvrn/Clozapinum/keyboard"
 )
 
 //MessageHandler - перехватывает простые текстовые сообщения и выдает конфиг ответного сообщения
@@ -16,14 +16,14 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 	if message.IsCommand() {
 		cmd := message.Command()
 		switch cmd {
-		case "/start":
+		case "start":
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Добрый вечер, это поленая информация. Можете нажать на кнопки, если хотите, конечно")
 			msgConf.ReplyMarkup = keyboard.MainKeyboard
 
 			msg = msgConf
 			newKeyboard = nil
 			newText = nil
-		case "/help":
+		case "help":
 			msg = tgbotapi.NewMessage(message.Chat.ID, "Спешу на помощь, подождите немного, я сделаю все, что в моих силах")
 			newKeyboard = nil
 			newText = nil
@@ -129,10 +129,9 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 			log.Panic(err)
 		}
 		allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
-
 		msg = nil
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allCategoriesKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Что хотите создать?")
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Вот ваши категории:")
 
 	case "createTask":
 		//
