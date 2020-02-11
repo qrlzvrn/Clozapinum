@@ -310,7 +310,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 	default:
 		categoryID := callbackQuery.Data
 		tguserID := callbackQuery.From.ID
-		strCategoryID, err := strconv.Atoi(categoryID)
+		intCategoryID, err := strconv.Atoi(categoryID)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -321,43 +321,57 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		}
 		defer conn.Close()
 
-		msg = nil
-
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChooseTaskKeyboard)
-
-		tasksSlice := []string{}
-
-		allTasks, err := db.ListTasks(conn, strCategoryID)
-		if err != nil {
+		allTasks, err := db.ListTasks(conn, intCategoryID)
+		if err == nil && allTasks == nil {
+			err = db.ChangeUserState(conn, tguserID, "taskCreation")
+			if err != nil {
+				log.Panic(err)
+			}
+			err = db.ChangeSelectCategory(conn, tguserID, intCategoryID)
+			if err != nil {
+				log.Panic(err)
+			}
+			msg = nil
+			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateTaskKeyboard)
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Пока что категория пуста. Давайте добавим первую задачу.\nВведите название задачи:")
+		} else if err != nil {
 			log.Panic(err)
-		}
+		} else {
 
-		for _, task := range allTasks {
-			id := task[0]
-			title := task[1]
-			complete := task[2]
-			if complete == "true" {
-				text := "\xE2\x9C\x85 #" + id + "-" + title
-				tasksSlice = append(tasksSlice, text)
-			} else {
-				text := "\xE2\x9D\x8E #" + id + "-" + title
-				tasksSlice = append(tasksSlice, text)
+			msg = nil
+
+			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChooseTaskKeyboard)
+
+			tasksSlice := []string{}
+
+			for _, task := range allTasks {
+				id := task[0]
+				title := task[1]
+				complete := task[2]
+				if complete == "true" {
+					text := "\xE2\x9C\x85 #" + id + "-" + title
+					tasksSlice = append(tasksSlice, text)
+				} else {
+					text := "\xE2\x9D\x8E #" + id + "-" + title
+					tasksSlice = append(tasksSlice, text)
+				}
+			}
+
+			allTasksMsg := strings.Join(tasksSlice, "\n")
+
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasksMsg)
+
+			err = db.ChangeUserState(conn, tguserID, "taskSelection")
+			if err != nil {
+				log.Panic(err)
+			}
+
+			err = db.ChangeSelectCategory(conn, tguserID, intCategoryID)
+			if err != nil {
+				log.Panic(err)
 			}
 		}
 
-		allTasksMsg := strings.Join(tasksSlice, "\n")
-
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasksMsg)
-
-		err = db.ChangeUserState(conn, tguserID, "taskSelection")
-		if err != nil {
-			log.Panic(err)
-		}
-
-		err = db.ChangeSelectCategory(conn, tguserID, strCategoryID)
-		if err != nil {
-			log.Panic(err)
-		}
 	}
 	return msg, newKeyboard, newText
 }

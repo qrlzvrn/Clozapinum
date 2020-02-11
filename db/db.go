@@ -31,7 +31,10 @@ func CheckUser(db *sqlx.DB, tguserID int) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	if isExist == "true" {
+		return nil
+	}
+	return err
 }
 
 func ChangeUserState(db *sqlx.DB, tguserID int, state string) error {
@@ -165,21 +168,30 @@ func ChangeTask() error {
 }
 
 func ListTasks(db *sqlx.DB, categoryID int) ([][]string, error) {
-	rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1", categoryID)
+	var isExist string
+	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1)", categoryID).Scan(&isExist)
 	if err != nil {
 		return nil, err
 	}
-
 	tasks := [][]string{}
+	if isExist == "true" {
+		rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1", categoryID)
+		if err != nil {
+			return nil, err
+		}
 
-	for rows.Next() {
-		var id int
-		var title string
-		var complete bool
-		rows.Scan(&id, &title, &complete)
-		tasks = append(tasks, []string{strconv.Itoa(id), title, strconv.FormatBool(complete)})
-		defer rows.Close()
+		for rows.Next() {
+			var id int
+			var title string
+			var complete bool
+			rows.Scan(&id, &title, &complete)
+			tasks = append(tasks, []string{strconv.Itoa(id), title, strconv.FormatBool(complete)})
+			defer rows.Close()
+		}
+	} else {
+		return nil, nil
 	}
+
 	return tasks, nil
 }
 
