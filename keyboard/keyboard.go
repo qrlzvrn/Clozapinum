@@ -4,28 +4,6 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-//MainKeyboard - Клавиатура главного меню, расположеная внизу
-var MainKeyboard = tgbotapi.NewInlineKeyboardMarkup(
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Добавить", "add"),
-	),
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Просмотреть", "ls"),
-	),
-)
-
-//AddKeyboard - Клавиатура предлагающая выбор пользователю, создать задачу или категорию
-//появляется после нажатия на кнопку Добавить
-var AddKeyboard = tgbotapi.NewInlineKeyboardMarkup(
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Задачу", "createTask"),
-		tgbotapi.NewInlineKeyboardButtonData("Категорию", "createKategory"),
-	),
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToMainMenu"),
-	),
-)
-
 //CreateKeyboarWithAllCategories - генерирует клавиатуру со всеми переданными категориями
 //появляется после нажатия на Просмотреть или на связку Добавить + Задачу
 func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboardMarkup {
@@ -38,6 +16,11 @@ func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboa
 		row = append(row, btn)
 		AllCategoriesKeyboard.InlineKeyboard = append(AllCategoriesKeyboard.InlineKeyboard, row)
 	}
+
+	var row []tgbotapi.InlineKeyboardButton
+	btn := tgbotapi.NewInlineKeyboardButtonData("Добавить", "createCategory")
+	row = append(row, btn)
+	AllCategoriesKeyboard.InlineKeyboard = append(AllCategoriesKeyboard.InlineKeyboard, row)
 	return AllCategoriesKeyboard
 }
 
@@ -46,7 +29,7 @@ func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboa
 // и предложения ввести название новой задачи
 var CreateTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToAllCategoryKeyboard"),
+		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToAllCategoriesKeyboard"),
 	),
 )
 
@@ -64,7 +47,7 @@ var CreateCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 var ChooseTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Выбрать", "choose"),
-		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToAllCategoryKeyboard"),
+		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToAllCategoriesKeyboard"),
 	),
 )
 

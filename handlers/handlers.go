@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -17,12 +18,52 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 		cmd := message.Command()
 		switch cmd {
 		case "start":
-			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Добрый вечер, это поленая информация. Можете нажать на кнопки, если хотите, конечно")
-			msgConf.ReplyMarkup = keyboard.MainKeyboard
+			tguserID := message.From.ID
 
-			msg = msgConf
-			newKeyboard = nil
-			newText = nil
+			conn, err := db.ConnectToBD()
+			if err != nil {
+				log.Panic(err)
+			}
+			defer conn.Close()
+
+			//Проверяем наличие пользователя в базе,
+			//если пользователь существует, то переходим к проверке категорий
+			//если нет, тогда добавляем его в базу и предлагаем создать новую категорию
+			err = db.CheckUser(conn, tguserID)
+			if err != nil {
+				err := db.CreateUser(conn, tguserID)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				msg = tgbotapi.NewMessage(message.Chat.ID, "Для того, что бы начать, нужно создать категорию. Введите название:")
+				newKeyboard = nil
+				newText = nil
+
+				err = db.ChangeUserState(conn, tguserID, "categoryCreation")
+				if err != nil {
+					log.Panic(err)
+				}
+
+			}
+			//Проверяем есть ли у пользователя категории
+			//если категорий нет, то предлагаем создать,
+			//если же они есть, то выводим клавиатуру с категориями
+			allCategories, err := db.ListAllCategories(conn, tguserID)
+			if err != nil {
+				msg = tgbotapi.NewMessage(message.Chat.ID, "Для того, что бы начать, нужно создать категорию. Введите название:")
+				newKeyboard = nil
+				newText = nil
+
+				err = db.ChangeUserState(conn, tguserID, "categoryCreation")
+				if err != nil {
+					log.Panic(err)
+				}
+			}
+			allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Ваши категории:")
+			msgConf.ReplyMarkup = allCategoriesKeyboard
+
 		case "help":
 			msg = tgbotapi.NewMessage(message.Chat.ID, "Спешу на помощь, подождите немного, я сделаю все, что в моих силах")
 			newKeyboard = nil
@@ -33,73 +74,85 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			newText = nil
 		}
 	} else {
-		switch message.Text {
-		case "создать":
-			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Что хотите создать?")
-			msgConf.ReplyMarkup = keyboard.AddKeyboard
+		//Обрабатываем обычные текстовые сообщения
+		//реакцию основываем на значении state в таблице tguser
+		tguserID := message.From.ID
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		state, err := db.CheckUserState(conn, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+		switch state {
+		case "categoryCreation":
+			nameCategory := message.Text
+			err := db.CreateCategory(conn, tguserID, nameCategory)
+			if err != nil {
+				log.Panic(err)
+			}
+			allCategories, err := db.ListAllCategories(conn, tguserID)
+			allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
+
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Категория успешно создана!\n\nВаши категории:")
+			msgConf.ReplyMarkup = allCategoriesKeyboard
+			msg = msgConf
+			newKeyboard = nil
+			newText = nil
+		case "taskCreation":
+			tguserID := message.From.ID
+			title := message.Text
+			categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			err = db.CreateTask(conn, categoryID, title)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			msg = tgbotapi.NewMessage(message.Chat.ID, "Задача успешно создана!")
+
+		case "taskSelection":
+			categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			taskID := message.Text
+			intTaskID, err := strconv.Atoi(taskID)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			text, err := db.ViewTask(conn, categoryID, intTaskID, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			err = db.ChangeSelectTask(conn, tguserID, intTaskID)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
+			msgConf.ReplyMarkup = keyboard.TaskKeyboard
 
 			msg = msgConf
 			newKeyboard = nil
 			newText = nil
-		case "просмотреть":
+		case "changedTaskTitle":
 			//
-		case "Привет":
-			id := message.From.ID
-
-			conn, err := db.ConnectToBD()
-			if err != nil {
-				log.Panic(err)
-			}
-			defer conn.Close()
-
-			db.CreateUser(conn, id)
-			msg = tgbotapi.NewMessage(message.Chat.ID, "Все ОК")
-			newKeyboard = nil
-			newText = nil
-		default:
-
-			tguserID := message.From.ID
-
-			conn, err := db.ConnectToBD()
-			if err != nil {
-				log.Panic(err)
-			}
-			defer conn.Close()
-
-			state, err := db.CheckUserState(conn, tguserID)
-			if err != nil {
-				log.Panic(err)
-			}
-			switch state {
-			case "categoryCreation":
-				nameCategory := message.Text
-				db.CreateCategory(conn, tguserID, nameCategory)
-				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Категория успешно создана")
-				msgConf.ReplyMarkup = keyboard.MainKeyboard
-
-				msg = msgConf
-				newKeyboard = nil
-				newText = nil
-			case "taskCreation":
-				tguserID := message.From.ID
-				title := message.Text
-				categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
-				if err != nil {
-					log.Panic(err)
-				}
-				err = db.CreateTask(conn, categoryID, title)
-				if err != nil {
-					log.Panic(err)
-				}
-			case "taskSelection":
-				//
-			case "taskChange":
-				//
-			}
-
-			//обработка сообщений польователей о названии, описании, дедлайну задачи или категории
-			//делаем запрос к бд и в зависимости от значения поля state решаем, что делать
+		case "changedTaskDescribe":
+			//
+		case "changedTaskDeadline":
+			//
 		}
+
+		//обработка сообщений польователей о названии, описании, дедлайну задачи или категории
+		//делаем запрос к бд и в зависимости от значения поля state решаем, что делать
 	}
 
 	return msg, newKeyboard, newText
@@ -111,11 +164,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 	var msg, newKeyboard, newText tgbotapi.Chattable
 
 	switch callbackQuery.Data {
-	case "add":
-		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.AddKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Что хотите создать?")
-	case "ls":
+	case "createTask":
 		conn, err := db.ConnectToBD()
 		if err != nil {
 			log.Panic(err)
@@ -131,10 +180,20 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
 		msg = nil
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allCategoriesKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Вот ваши категории:")
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Выберите категорию:")
 
-	case "createTask":
-		//
+		err = db.CheckUser(conn, tguserID)
+		if err != nil {
+			err = db.CreateUser(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+		}
+		err = db.ChangeUserState(conn, tguserID, "taskCreation")
+		if err != nil {
+			log.Panic(err)
+		}
+
 	case "createCategory":
 		msg = nil
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateCategoryKeyboard)
@@ -149,26 +208,12 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 		err = db.CheckUser(conn, tguserID)
 		if err != nil {
-			log.Panic(err)
+			err = db.CreateUser(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 		err = db.ChangeUserState(conn, tguserID, "categoryCreation")
-		if err != nil {
-			log.Panic(err)
-		}
-
-	case "backToMainMenu":
-		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.MainKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Что будем делать сегодня?")
-
-		conn, err := db.ConnectToBD()
-		if err != nil {
-			log.Panic(err)
-		}
-		defer conn.Close()
-		tguserID := callbackQuery.From.ID
-
-		err = db.ChangeUserState(conn, tguserID, "mainMenu")
 		if err != nil {
 			log.Panic(err)
 		}
@@ -196,10 +241,6 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		if err != nil {
 			log.Panic(err)
 		}
-	case "backToAddKeyboard":
-		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.AddKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "что хотите создать?")
 
 	case "backToListTasks":
 		msg = nil
@@ -241,7 +282,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasksMsg)
 
-		err = db.ChangeUserState(conn, tguserID, "viewTaskList")
+		err = db.ChangeUserState(conn, tguserID, "taskSelection")
 		if err != nil {
 			log.Panic(err)
 		}
@@ -266,6 +307,57 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		//
 	case "changeDescription":
 		//
+	default:
+		categoryID := callbackQuery.Data
+		tguserID := callbackQuery.From.ID
+		strCategoryID, err := strconv.Atoi(categoryID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		msg = nil
+
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChooseTaskKeyboard)
+
+		tasksSlice := []string{}
+
+		allTasks, err := db.ListTasks(conn, strCategoryID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		for _, task := range allTasks {
+			id := task[0]
+			title := task[1]
+			complete := task[2]
+			if complete == "true" {
+				text := "\xE2\x9C\x85 #" + id + "-" + title
+				tasksSlice = append(tasksSlice, text)
+			} else {
+				text := "\xE2\x9D\x8E #" + id + "-" + title
+				tasksSlice = append(tasksSlice, text)
+			}
+		}
+
+		allTasksMsg := strings.Join(tasksSlice, "\n")
+
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasksMsg)
+
+		err = db.ChangeUserState(conn, tguserID, "taskSelection")
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = db.ChangeSelectCategory(conn, tguserID, strCategoryID)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 	return msg, newKeyboard, newText
 }

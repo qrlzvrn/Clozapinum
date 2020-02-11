@@ -15,9 +15,9 @@ func ConnectToBD() (*sqlx.DB, error) {
 	return db, nil
 }
 
-func CreateUser(db *sqlx.DB, userID int) error {
+func CreateUser(db *sqlx.DB, tguserID int) error {
 	tx := db.MustBegin()
-	tx.MustExec("INSERT INTO tguser (id, state) VALUES ($1, $2)", userID, "borned")
+	tx.MustExec("INSERT INTO tguser (id, state) VALUES ($1, $2)", tguserID, "borned")
 	err := tx.Commit()
 	if err != nil {
 		return err
@@ -25,50 +25,64 @@ func CreateUser(db *sqlx.DB, userID int) error {
 	return nil
 }
 
-func CheckUser(db *sqlx.DB, userID int) error {
+func CheckUser(db *sqlx.DB, tguserID int) error {
 	var isExist string
-	err := db.QueryRow("SELECT exists (select 1 from tguser where id=$1)", userID).Scan(&isExist)
+	err := db.QueryRow("SELECT exists (select 1 from tguser where id=$1)", tguserID).Scan(&isExist)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func ChangeUserState(db *sqlx.DB, userID int, state string) error {
+func ChangeUserState(db *sqlx.DB, tguserID int, state string) error {
 	tx := db.MustBegin()
-	tx.MustExec("UPDATE tguser SET state=$1 where id=$2", state, userID)
+	tx.MustExec("UPDATE tguser SET state=$1 where id=$2", state, tguserID)
 	tx.Commit()
 	return nil
 }
 
-func CheckUserState(db *sqlx.DB, userID int) (string, error) {
+func ChangeSelectCategory(db *sqlx.DB, tguserID int, categoryID int) error {
+	tx := db.MustBegin()
+	tx.MustExec("UPDATE tguser SET select_category=$1 where id=$2", categoryID, tguserID)
+	tx.Commit()
+	return nil
+}
+
+func ChangeSelectTask(db *sqlx.DB, tguserID int, taskID int) error {
+	tx := db.MustBegin()
+	tx.MustExec("UPDATE tguser SET select_task=$1 where id=$2", taskID, tguserID)
+	tx.Commit()
+	return nil
+}
+
+func CheckUserState(db *sqlx.DB, tguserID int) (string, error) {
 	var state string
-	err := db.QueryRow("SELECT state FROM tguser WHERE id=$1", userID).Scan(&state)
+	err := db.QueryRow("SELECT state FROM tguser WHERE id=$1", tguserID).Scan(&state)
 	if err != nil {
 		return "", err
 	}
 	return state, nil
 }
 
-func CheckSelectTaskID(db *sqlx.DB, userID int) (int, error) {
+func CheckSelectTaskID(db *sqlx.DB, tguserID int) (int, error) {
 	var taskID int
-	err := db.QueryRow("SELECT select_task FROM tguser WHERE id=$1", userID).Scan(&taskID)
+	err := db.QueryRow("SELECT select_task FROM tguser WHERE id=$1", tguserID).Scan(&taskID)
 	if err != nil {
 		return 0, err
 	}
 	return taskID, nil
 }
 
-func CheckSelectCategoryID(db *sqlx.DB, userID int) (int, error) {
+func CheckSelectCategoryID(db *sqlx.DB, tguserID int) (int, error) {
 	var categoryID int
-	err := db.QueryRow("SELECT select_category FROM tguser WHERE id=$1", userID).Scan(&categoryID)
+	err := db.QueryRow("SELECT select_category FROM tguser WHERE id=$1", tguserID).Scan(&categoryID)
 	if err != nil {
 		return 0, err
 	}
 	return categoryID, nil
 }
 
-func CreateCategory(db *sqlx.DB, userID int, name string) error {
+func CreateCategory(db *sqlx.DB, tguserID int, name string) error {
 	var categoryID int
 	tx := db.MustBegin()
 	tx.MustExec("INSERT INTO category (name) VALUES ($1)", name)
@@ -76,13 +90,13 @@ func CreateCategory(db *sqlx.DB, userID int, name string) error {
 	if err != nil {
 		return err
 	}
-	tx.MustExec("INSERT INTO category_tguser (category_id, tguser_id) VALUES ($1, $2)", categoryID, userID)
+	tx.MustExec("INSERT INTO category_tguser (category_id, tguser_id) VALUES ($1, $2)", categoryID, tguserID)
 	tx.Commit()
 	return nil
 }
 
-func ListAllCategories(db *sqlx.DB, userID int) ([][]string, error) {
-	rows, err := db.Query("SELECT category.id, category.name FROM category LEFT JOIN category_tguser ON category_tguser.category_id=category.id WHERE category_tguser.tguser_id=$1", userID)
+func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, error) {
+	rows, err := db.Query("SELECT category.id, category.name FROM category LEFT JOIN category_tguser ON category_tguser.category_id=category.id WHERE category_tguser.tguser_id=$1", tguserID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +125,47 @@ func CreateTask(db *sqlx.DB, categoryID int, title string) error {
 	return nil
 }
 
+func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, error) {
+
+	var text string
+
+	var title string
+	var complete bool
+	var description string
+	var deadline string
+
+	tx := db.MustBegin()
+	err := tx.QueryRow("SELECT title, complete, deadline-now()::date FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&title, &complete, &deadline)
+	if err != nil {
+		return "", err
+	}
+
+	secondErr := tx.QueryRow("SELECT description FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&description)
+	if secondErr != nil {
+		if complete == true {
+			text = "\xE2\x9C\x85 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней"
+		} else {
+			text = "\xE2\x9D\x8E \t" + title + "\n\n" + "дедлайн: " + deadline + " дней"
+		}
+	} else {
+		if complete == true {
+			text = "\xE2\x9C\x85 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней" + "\n\n" + description
+		} else {
+			text = "\xE2\x9D\x8E \t" + title + "\n\n" + "дедлайн: " + deadline + " дней" + "\n\n" + description
+		}
+	}
+
+	return text, nil
+}
+
 func ChangeTask() error {
 	//
 	//
 	return nil
 }
 
-func ListTasks(db *sqlx.DB, category_id int) ([][]string, error) {
-	rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1", category_id)
+func ListTasks(db *sqlx.DB, categoryID int) ([][]string, error) {
+	rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1", categoryID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,11 +183,11 @@ func ListTasks(db *sqlx.DB, category_id int) ([][]string, error) {
 	return tasks, nil
 }
 
-func DeleteTask(db *sqlx.DB, taskID int, userID int) error {
+func DeleteTask(db *sqlx.DB, taskID int, tguserID int) error {
 	var user int
 
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, userID).Scan(&user)
+	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, tguserID).Scan(&user)
 	if err != nil {
 		return err
 	}
@@ -150,11 +197,11 @@ func DeleteTask(db *sqlx.DB, taskID int, userID int) error {
 	return nil
 }
 
-func CompleteTask(db *sqlx.DB, taskID int, userID int) error {
+func CompleteTask(db *sqlx.DB, taskID int, tguserID int) error {
 	var user int
 
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, userID).Scan(&user)
+	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, tguserID).Scan(&user)
 	if err != nil {
 		return err
 	}
@@ -164,11 +211,11 @@ func CompleteTask(db *sqlx.DB, taskID int, userID int) error {
 	return nil
 }
 
-func IsComplete(db *sqlx.DB, taskID int, userID int) (bool, error) {
+func IsComplete(db *sqlx.DB, taskID int, tguserID int) (bool, error) {
 	var user int
 	var isComplete bool
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, userID).Scan(&user)
+	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, tguserID).Scan(&user)
 	if err != nil {
 		return false, err
 	}
