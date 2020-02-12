@@ -25,16 +25,13 @@ func CreateUser(db *sqlx.DB, tguserID int) error {
 	return nil
 }
 
-func CheckUser(db *sqlx.DB, tguserID int) error {
-	var isExist string
+func CheckUser(db *sqlx.DB, tguserID int) (bool, error) {
+	var isExist bool
 	err := db.QueryRow("SELECT exists (select 1 from tguser where id=$1)", tguserID).Scan(&isExist)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if isExist == "true" {
-		return nil
-	}
-	return err
+	return isExist, nil
 }
 
 func ChangeUserState(db *sqlx.DB, tguserID int, state string) error {
@@ -99,6 +96,16 @@ func CreateCategory(db *sqlx.DB, tguserID int, name string) error {
 }
 
 func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, error) {
+	var isExist bool
+	err := db.QueryRow("SELECT exists (SELECT 1 FROM category_tguser WHERE tguser_id=$1)", tguserID).Scan(&isExist)
+	if err != nil {
+		return nil, err
+	}
+
+	if isExist == false {
+		return nil, nil
+	}
+
 	rows, err := db.Query("SELECT category.id, category.name FROM category LEFT JOIN category_tguser ON category_tguser.category_id=category.id WHERE category_tguser.tguser_id=$1", tguserID)
 	if err != nil {
 		return nil, err
