@@ -44,10 +44,19 @@ var CreateCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 
 //ChooseTaskKeyboard - клавиатура позволяющая либо выбрать задчу, либо вернуться назад
 //появляется после нажатия на Просмотреть
-var ChooseTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+var SelectedCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Выбрать", "choose"),
+		tgbotapi.NewInlineKeyboardButtonData("Добавить", "createTask"),
+	),
+	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToAllCategoriesKeyboard"),
+	),
+)
+
+var SelectTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListTasks"),
 	),
 )
 

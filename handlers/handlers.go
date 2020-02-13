@@ -84,18 +84,7 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			newText = nil
 		}
 	} else {
-		//Обрабатываем
-		//обычные
-		//текстовые
-		//сообщения
-		//реакцию
-		//основываем
-		//на
-		//значении
-		//state
-		//в
-		//таблице
-		//tguser
+		//Обрабатываем обычные текстовые сообщения реакцию основываем на значении state в таблице tguser
 		tguserID := message.From.ID
 
 		conn, err := db.ConnectToBD()
@@ -130,12 +119,62 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			if err != nil {
 				log.Panic(err)
 			}
-			err = db.CreateTask(conn, categoryID, title)
+			problem, err := db.CreateTask(conn, categoryID, title)
 			if err != nil {
 				log.Panic(err)
 			}
 
-			msg = tgbotapi.NewMessage(message.Chat.ID, "Задача успешно создана!")
+			if problem == "titleIsNotDeadline" || problem == "nilTitle" {
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Простите, но у задачи обязательно должно быть название. Попробуйте еще раз")
+				msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
+
+				msg = msgConf
+				newKeyboard = nil
+				newText = nil
+			}
+
+			if problem == "dateErr" {
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, с вашим дедлайном что-то не так, вы точно ввели его в формате дд.мм.гггг? Попробуте еще раз")
+				msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
+
+				msg = msgConf
+				newKeyboard = nil
+				newText = nil
+			}
+
+			tasksSlice := []string{}
+
+			allTasks, err := db.ListTasks(conn, categoryID)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			for _, task := range allTasks {
+				id := task[0]
+				title := task[1]
+				complete := task[2]
+				if complete == "true" {
+					text := "\xE2\x9C\x85 #" + id + "-" + title
+					tasksSlice = append(tasksSlice, text)
+				} else {
+					text := "\xE2\x9D\x8E #" + id + "-" + title
+					tasksSlice = append(tasksSlice, text)
+				}
+			}
+
+			allTasksMsg := strings.Join(tasksSlice, "\n")
+
+			err = db.ChangeUserState(conn, tguserID, "taskSelection")
+			if err != nil {
+				log.Panic(err)
+			}
+
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Задача успешно создана!\n\n"+allTasksMsg)
+			msgConf.ReplyMarkup = keyboard.SelectedCategoryKeyboard
+
+			msg = msgConf
+			newKeyboard = nil
+			newText = nil
 
 		case "taskSelection":
 			categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
@@ -170,52 +209,14 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 		case "changedTaskDeadline":
 			//
 		}
-
-		//обработка
-		//сообщений
-		//польователей
-		//о
-		//названии,
-		//описании,
-		//дедлайну
-		//задачи
-		//или
-		//категории
-		//делаем
-		//запрос
-		//к
-		//бд
-		//и
-		//в
-		//зависимости
-		//от
-		//значения
-		//поля
-		//state
-		//решаем,
-		//что
-		//делать
+		//обработка сообщений польователей о названии, описании, дедлайну задачи или категории
+		//делаем запрос к бд и в зависимости от значения поля state решаем, что делать
 	}
 
 	return msg, newKeyboard, newText
 }
 
-//InlineQueryHandler
-//-
-//перехватывает
-//сообщения
-//от
-//нажатий
-//на
-//inlineKeyboard
-//и
-//выдает
-//один
-//или
-//несколько
-//конфигов
-//ответных
-//сообщений
+//InlineQueryHandler - перехватывает сообщения от нажатий на inlineKeyboard и выдает один или несколько конфигов ответных сообщений
 func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable) {
 	var msg, newKeyboard, newText tgbotapi.Chattable
 
@@ -229,25 +230,16 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 		tguserID := callbackQuery.From.ID
 
-		allCategories, err := db.ListAllCategories(conn, tguserID)
-		if err != nil {
-			log.Panic(err)
-		}
-		allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
-		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allCategoriesKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Выберите категорию:")
-
 		err = db.ChangeUserState(conn, tguserID, "taskCreation")
 		if err != nil {
 			log.Panic(err)
 		}
 
-	case "createCategory":
 		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateCategoryKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Как будет называться категория?")
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateTaskKeyboard)
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Введите задачу:")
 
+	case "createCategory":
 		conn, err := db.ConnectToBD()
 		if err != nil {
 			log.Panic(err)
@@ -259,6 +251,10 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		if err != nil {
 			log.Panic(err)
 		}
+
+		msg = nil
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateCategoryKeyboard)
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Как будет называться категория?")
 
 	case "backToAllCategoriesKeyboard":
 		conn, err := db.ConnectToBD()
@@ -286,7 +282,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 	case "backToListTasks":
 		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChooseTaskKeyboard)
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.SelectedCategoryKeyboard)
 
 		conn, err := db.ConnectToBD()
 		if err != nil {
@@ -333,46 +329,17 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChangeTaskKeyboard)
 		newText = nil
 	case "choose":
-		//проверяем
-		//выполнена
-		//ли
-		//задача
-		//и
-		//в
-		//зависимости
-		//от
-		//этого
-		//выдаем
-		//клавиатуру
-		msg = tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите id задачи:")
+		//проверяем выполнена ли задача и в зависимости от этого выдаем клавиатуру
+		msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите id задачи:")
+		msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
+
+		msg = msgConf
 		newKeyboard = nil
 		newText = nil
 	case "complete":
-		//делаем
-		//запрос
-		//к
-		//базе
-		//и
-		//отмечаем
-		//задачу
-		//выполненной,
-		//если
-		//все
-		//ок,
-		//сообщаем
-		//об
-		//успехе,
-		//если
-		//что-то
-		//пошло
-		//не
-		//так,
-		//то
-		//пишем
-		//пользователю
-		//сообщение
-		//об
-		//ошибке
+		//делаем запрос к базе и отмечаем задачу выполненной,
+		//если все ок, сообщаем об успехе,
+		//если что-то пошло не так, то пишем пользователю сообщение об ошибке
 		msg = tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Задача выполненна")
 
 	case "delete":
@@ -399,11 +366,11 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 		allTasks, err := db.ListTasks(conn, intCategoryID)
 		if err == nil && allTasks == nil {
-			err = db.ChangeUserState(conn, tguserID, "taskCreation")
+			err = db.ChangeSelectCategory(conn, tguserID, intCategoryID)
 			if err != nil {
 				log.Panic(err)
 			}
-			err = db.ChangeSelectCategory(conn, tguserID, intCategoryID)
+			err = db.ChangeUserState(conn, tguserID, "taskCreation")
 			if err != nil {
 				log.Panic(err)
 			}
@@ -416,7 +383,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 			msg = nil
 
-			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChooseTaskKeyboard)
+			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.SelectedCategoryKeyboard)
 
 			tasksSlice := []string{}
 

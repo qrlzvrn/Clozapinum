@@ -1,7 +1,10 @@
 package bd
 
 import (
+	"regexp"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -128,11 +131,151 @@ func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, error) {
 	return allCategories, nil
 }
 
-func CreateTask(db *sqlx.DB, categoryID int, title string) error {
-	tx := db.MustBegin()
-	tx.MustExec("INSERT INTO task(title, complete, category_id) VALUES ($1, $2, $3)", title, false, categoryID)
-	tx.Commit()
-	return nil
+func CreateTask(db *sqlx.DB, categoryID int, text string) (string, error) {
+
+	sliceTaskText := strings.SplitN(text, "\n\n", 3)
+	var fmtDeadline string
+	//Проверяем сколько разных строк пришло
+	len := len(sliceTaskText)
+	if len == 3 {
+		title := sliceTaskText[0]
+		deadline := sliceTaskText[1]
+		description := sliceTaskText[2]
+
+		//Проверяем не попал ли deadline в title
+		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
+		if titleErr == true {
+			return "titleNotDeadline", nil
+		}
+		//Проверяем введен ли title
+		if title == "" {
+			return "nilTitle", nil
+		}
+
+		//Проверяем правильность введения deadline
+		deadlineOK, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, deadline)
+		if deadlineOK == false {
+			if deadline == "-" || deadline == "" {
+				fmtDeadline = "01.01.1998"
+
+				layout := "02.01.2006"
+				t, err := time.Parse(layout, fmtDeadline)
+				if err != nil {
+					return "dateErr", err
+				}
+				fmtDeadline = t.Format("01-02-2006")
+			}
+			return "deadlineIncorect", nil
+		}
+
+		layout := "02.01.2006"
+		t, err := time.Parse(layout, deadline)
+		if err != nil {
+			return "dateErr", err
+		}
+		fmtDeadline := t.Format("01-02-2006")
+
+		//Проверяем введено ли описание
+		if description == "" {
+			description = "-"
+		}
+
+		tx := db.MustBegin()
+		tx.MustExec("INSERT INTO task(title, complete, category_id, description, deadline) VALUES ($1, $2, $3, $4, $5)", title, false, categoryID, description, fmtDeadline)
+		tx.Commit()
+
+	} else if len == 2 {
+		var deadline string
+		var description string
+
+		title := sliceTaskText[0]
+		something := sliceTaskText[1]
+
+		//Проверяем не попал ли deadline в title
+		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
+		if titleErr == true {
+			return "titleIsNotDeadline", nil
+		}
+		//Проверяем введен ли title
+		if title == "" {
+			return "nilTitle", nil
+		}
+
+		isItDeadline, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, something)
+		if isItDeadline == true {
+			deadline = something
+			description = "-"
+
+			//форматируем deadline
+			layout := "02.01.2006"
+			t, err := time.Parse(layout, deadline)
+			if err != nil {
+				return "dateErr", err
+			}
+			fmtDeadline = t.Format("01-02-2006")
+		} else if isItDeadline == false {
+			//Если проверка по шаблону дедлайна не пройдена
+			//проверяем на пустую строку или прочерк
+			//если проверка не прошла, тогда считаем, что
+			//полученная строка является описаниием
+			if something == "" || something == "-" {
+
+				deadline = "01.01.1998"
+
+				layout := "02.01.2006"
+				t, err := time.Parse(layout, fmtDeadline)
+				if err != nil {
+					return "dateErr", err
+				}
+				fmtDeadline = t.Format("01-02-2006")
+
+				description = "-"
+			}
+
+			description = something
+			deadline = "01.01.1998"
+
+			layout := "02.01.2006"
+			t, err := time.Parse(layout, deadline)
+			if err != nil {
+				return "dateErr", err
+			}
+			fmtDeadline = t.Format("01-02-2006")
+
+		}
+		tx := db.MustBegin()
+		tx.MustExec("INSERT INTO task(title, complete, category_id, description, deadline) VALUES ($1, $2, $3, $4, $5)", title, false, categoryID, description, fmtDeadline)
+		tx.Commit()
+
+	} else if len == 1 {
+		title := sliceTaskText[0]
+		var deadline string
+		var description string
+		//Проверяем не попал ли deadline в title
+		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
+		if titleErr == true {
+			return "titleIsNotDeadline", nil
+		}
+		//Проверяем введен ли title
+		if title == "" {
+			return "nilTitle", nil
+		}
+
+		deadline = "01.01.1998"
+
+		layout := "02.01.2006"
+		t, err := time.Parse(layout, deadline)
+		if err != nil {
+			return "dateErr", err
+		}
+		fmtDeadline = t.Format("01-02-2006")
+
+		description = "-"
+		tx := db.MustBegin()
+		tx.MustExec("INSERT INTO task(title, complete, category_id, description, deadline) VALUES ($1, $2, $3, $4, $5)", title, false, categoryID, description, fmtDeadline)
+		tx.Commit()
+	}
+	return "ok", nil
 }
 
 func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, error) {
@@ -145,7 +288,7 @@ func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, er
 	var deadline string
 
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT title, complete, deadline-now()::date FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&title, &complete, &deadline)
+	err := tx.QueryRow("SELECT title, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&title, &complete, &deadline)
 	if err != nil {
 		return "", err
 	}
