@@ -42,7 +42,7 @@ var CreateCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-//ChooseTaskKeyboard - клавиатура позволяющая либо выбрать задчу, либо вернуться назад
+//SelectedCategoryKeyboard - клавиатура позволяющая либо выбрать задчу, либо вернуться назад
 //появляется после нажатия на Просмотреть
 var SelectedCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
@@ -54,6 +54,8 @@ var SelectedCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
+//SelectTaskKeyboard - клавиатура позволяющая отказаться от приглашения ввести id задачи
+//после нажатия на кнопку выбрать в списке всех задач выбранной категории
 var SelectTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListTasks"),
@@ -69,6 +71,19 @@ var TaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Изменить", "change"),
+		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListTasks"),
+	),
+)
+
+//CompletedTaskKeyboard - клавиатура с действиями над задачей
+//появляется после нажатия на Просмотреть и введения id задачи,
+//если задача уже выполненна
+var CompletedTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Изменить", "change"),
+		tgbotapi.NewInlineKeyboardButtonData("Удалить", "delete"),
+	),
+	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListTasks"),
 	),
 )

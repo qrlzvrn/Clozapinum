@@ -49,8 +49,7 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 				//Проверяем есть ли у пользователя категории
 				//если категорий нет, то предлагаем создать,
 				//если же они есть, то
-				//выводим клавиатуру с
-				//категориями
+				//выводим клавиатуру с категориями
 				allCategories, err := db.ListAllCategories(conn, tguserID)
 				if err == nil && allCategories == nil {
 					msg = tgbotapi.NewMessage(message.Chat.ID, "Для того, что бы начать, нужно создать категорию. Введите название:")
@@ -84,7 +83,8 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			newText = nil
 		}
 	} else {
-		//Обрабатываем обычные текстовые сообщения реакцию основываем на значении state в таблице tguser
+		//Обрабатываем обычные текстовые сообщения
+		//реакцию основываем на значении state в таблице tguser
 		tguserID := message.From.ID
 
 		conn, err := db.ConnectToBD()
@@ -154,14 +154,13 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 				title := task[1]
 				complete := task[2]
 				if complete == "true" {
-					text := "\xE2\x9C\x85 #" + id + "-" + title
+					text := "\xF0\x9F\x93\x97 ( " + id + " )\t" + title
 					tasksSlice = append(tasksSlice, text)
 				} else {
-					text := "\xE2\x9D\x8E #" + id + "-" + title
+					text := "\xF0\x9F\x93\x95 ( " + id + " )\t" + title
 					tasksSlice = append(tasksSlice, text)
 				}
 			}
-
 			allTasksMsg := strings.Join(tasksSlice, "\n")
 
 			err = db.ChangeUserState(conn, tguserID, "taskSelection")
@@ -187,21 +186,48 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 				log.Panic(err)
 			}
 
-			text, err := db.ViewTask(conn, categoryID, intTaskID, tguserID)
+			isExist, err := db.IsTaskExist(conn, categoryID, intTaskID)
 			if err != nil {
 				log.Panic(err)
-			}
-			err = db.ChangeSelectTask(conn, tguserID, intTaskID)
-			if err != nil {
-				log.Panic(err)
-			}
+			} else if isExist == false {
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, у вас нет задачи с таким id. Давайте попробуем еще раз?\n\nВведите id задачи:")
+				msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
 
-			msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
-			msgConf.ReplyMarkup = keyboard.TaskKeyboard
+				msg = msgConf
+				newKeyboard = nil
+				newText = nil
+			} else if isExist == true {
 
-			msg = msgConf
-			newKeyboard = nil
-			newText = nil
+				text, err := db.ViewTask(conn, categoryID, intTaskID, tguserID)
+				if err != nil && text == "taskSelectionErr" {
+					msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, у вас нет задачи с таким id. Давайте попробуем еще раз?\n\nВведите id задачи:")
+					msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
+
+					msg = msgConf
+					newKeyboard = nil
+					newText = nil
+				} else {
+					err = db.ChangeSelectTask(conn, tguserID, intTaskID)
+					if err != nil {
+						log.Panic(err)
+					}
+
+					msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
+
+					isComplete, err := db.IsComplete(conn, intTaskID)
+					if err == nil && isComplete == false {
+						msgConf.ReplyMarkup = keyboard.TaskKeyboard
+					} else if err == nil && isComplete == true {
+						msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+					} else {
+						log.Panic(err)
+					}
+
+					msg = msgConf
+					newKeyboard = nil
+					newText = nil
+				}
+			}
 		case "changedTaskTitle":
 			//
 		case "changedTaskDescribe":
@@ -308,15 +334,15 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 			title := task[1]
 			complete := task[2]
 			if complete == "true" {
-				text := "\xE2\x9C\x85 #" + id + "-" + title
+				text := "\xF0\x9F\x93\x97 ( " + id + " )\t" + title
 				tasksSlice = append(tasksSlice, text)
 			} else {
-				text := "\xE2\x9D\x8E #" + id + "-" + title
+				text := "\xF0\x9F\x93\x95 ( " + id + " )\t" + title
 				tasksSlice = append(tasksSlice, text)
 			}
 		}
 
-		allTasksMsg := strings.Join(tasksSlice, "\n")
+		allTasksMsg := strings.Join(tasksSlice, "\n\n")
 
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasksMsg)
 
@@ -392,15 +418,14 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 				title := task[1]
 				complete := task[2]
 				if complete == "true" {
-					text := "\xE2\x9C\x85 #" + id + "-" + title
+					text := "\xF0\x9F\x93\x97 ( " + id + " )\t" + title
 					tasksSlice = append(tasksSlice, text)
 				} else {
-					text := "\xE2\x9D\x8E #" + id + "-" + title
+					text := "\xF0\x9F\x93\x95 ( " + id + " )\t" + title
 					tasksSlice = append(tasksSlice, text)
 				}
 			}
-
-			allTasksMsg := strings.Join(tasksSlice, "\n")
+			allTasksMsg := strings.Join(tasksSlice, "\n\n")
 
 			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasksMsg)
 

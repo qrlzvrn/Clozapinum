@@ -216,8 +216,8 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) (string, error) {
 		} else if isItDeadline == false {
 			//Если проверка по шаблону дедлайна не пройдена
 			//проверяем на пустую строку или прочерк
-			//если проверка не прошла, тогда считаем, что
-			//полученная строка является описаниием
+			//если проверка не прошла,
+			//тогда считаем, что полученная строка является описаниием
 			if something == "" || something == "-" {
 
 				deadline = "01.01.1998"
@@ -288,23 +288,41 @@ func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, er
 	var deadline string
 
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT title, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&title, &complete, &deadline)
+	err := tx.QueryRow("SELECT title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&title, &description, &complete, &deadline)
 	if err != nil {
-		return "", err
+		return "taskSelectionErr", err
 	}
 
-	secondErr := tx.QueryRow("SELECT description FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&description)
-	if secondErr != nil {
-		if complete == true {
-			text = "\xE2\x9C\x85 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней"
+	nilDeadline, _ := regexp.MatchString(`^\-\d+`, deadline)
+
+	if nilDeadline == true {
+		if description == "-" {
+			if complete == true {
+				text = "\xF0\x9F\x93\x97 \t" + title
+			} else {
+				text = "\xF0\x9F\x93\x95 \t" + title
+			}
 		} else {
-			text = "\xE2\x9D\x8E \t" + title + "\n\n" + "дедлайн: " + deadline + " дней"
+			if complete == true {
+				text = "\xF0\x9F\x93\x97 \t" + title + "\n\n" + description
+			} else {
+				text = "\xF0\x9F\x93\x95 \t" + title + "\n\n" + description
+			}
 		}
 	} else {
-		if complete == true {
-			text = "\xE2\x9C\x85 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней" + "\n\n" + description
+
+		if description == "-" {
+			if complete == true {
+				text = "\xF0\x9F\x93\x97 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней"
+			} else {
+				text = "\xF0\x9F\x93\x95 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней"
+			}
 		} else {
-			text = "\xE2\x9D\x8E \t" + title + "\n\n" + "дедлайн: " + deadline + " дней" + "\n\n" + description
+			if complete == true {
+				text = "\xF0\x9F\x93\x97 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней" + "\n\n" + description
+			} else {
+				text = "\xF0\x9F\x93\x95 \t" + title + "\n\n" + "дедлайн: " + deadline + " дней" + "\n\n" + description
+			}
 		}
 	}
 
@@ -373,18 +391,22 @@ func CompleteTask(db *sqlx.DB, taskID int, tguserID int) error {
 	return nil
 }
 
-func IsComplete(db *sqlx.DB, taskID int, tguserID int) (bool, error) {
-	var user int
+func IsComplete(db *sqlx.DB, taskID int) (bool, error) {
 	var isComplete bool
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, tguserID).Scan(&user)
-	if err != nil {
-		return false, err
-	}
-	err = tx.QueryRow("SELECT complete FROM task where id=$1", taskID).Scan(&isComplete)
+	err := tx.QueryRow("SELECT complete FROM task where id=$1", taskID).Scan(&isComplete)
 	if err != nil {
 		return false, err
 	}
 	tx.Commit()
 	return isComplete, nil
+}
+
+func IsTaskExist(db *sqlx.DB, categoryID int, taskID int) (bool, error) {
+	var isExist bool
+	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE id=$1 AND category_id=$2)", taskID, categoryID).Scan(&isExist)
+	if err != nil {
+		return false, err
+	}
+	return isExist, nil
 }
