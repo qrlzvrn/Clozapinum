@@ -335,17 +335,17 @@ func ChangeTask() error {
 	return nil
 }
 
-func ListTasks(db *sqlx.DB, categoryID int) ([][]string, error) {
+func ListTasks(db *sqlx.DB, categoryID int) (string, error) {
 	var isExist string
 	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1)", categoryID).Scan(&isExist)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	tasks := [][]string{}
 	if isExist == "true" {
-		rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1", categoryID)
+		rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1 ORDER BY complete", categoryID)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		for rows.Next() {
@@ -357,10 +357,27 @@ func ListTasks(db *sqlx.DB, categoryID int) ([][]string, error) {
 			defer rows.Close()
 		}
 	} else {
-		return nil, nil
+		return "", nil
 	}
 
-	return tasks, nil
+	tasksSlice := []string{}
+
+	for _, task := range tasks {
+		id := task[0]
+		title := task[1]
+		complete := task[2]
+		if complete == "true" {
+			text := "\xF0\x9F\x93\x97 ( " + id + " )\t" + title
+			tasksSlice = append(tasksSlice, text)
+		} else {
+			text := "\xF0\x9F\x93\x95 ( " + id + " )\t" + title
+			tasksSlice = append(tasksSlice, text)
+		}
+	}
+
+	allTasksMsg := strings.Join(tasksSlice, "\n\n")
+
+	return allTasksMsg, nil
 }
 
 func DeleteTask(db *sqlx.DB, taskID int, tguserID int) error {
@@ -377,17 +394,13 @@ func DeleteTask(db *sqlx.DB, taskID int, tguserID int) error {
 	return nil
 }
 
-func CompleteTask(db *sqlx.DB, taskID int, tguserID int) error {
-	var user int
-
+func CompleteTask(db *sqlx.DB, taskID int) error {
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, tguserID).Scan(&user)
+	tx.MustExec("UPDATE task set complete=$1 WHERE id=$2", true, taskID)
+	err := tx.Commit()
 	if err != nil {
 		return err
 	}
-	tx.MustExec("UPDATE task set complete=$1 WHERE id=$2", true, taskID)
-	tx.Commit()
-
 	return nil
 }
 
