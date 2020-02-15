@@ -98,6 +98,21 @@ func CreateCategory(db *sqlx.DB, tguserID int, name string) error {
 	return nil
 }
 
+func DeleteCategory(db *sqlx.DB, tguserID int, categoryID int) error {
+	tx := db.MustBegin()
+	tx.MustExec("UPDATE tguser SET select_category=NULL WHERE id=$1", tguserID)
+	tx.MustExec("UPDATE tguser SET select_task=NULL WHERE id=$1", tguserID)
+	tx.MustExec("DELETE FROM task WHERE category_id=$1", categoryID)
+	tx.MustExec("DELETE FROM category_tguser WHERE category_id=$1", categoryID)
+	tx.MustExec("DELETE FROM category WHERE category_id=$1", categoryID)
+	err := tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, error) {
 	var isExist bool
 	err := db.QueryRow("SELECT exists (SELECT 1 FROM category_tguser WHERE tguser_id=$1)", tguserID).Scan(&isExist)
@@ -381,22 +396,19 @@ func ListTasks(db *sqlx.DB, categoryID int) (string, error) {
 }
 
 func DeleteTask(db *sqlx.DB, taskID int, tguserID int) error {
-	var user int
-
 	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT category_tguser.tguser_id FROM task LEFT JOIN category_tguser ON category_tguser.category_id=task.category_id WHERE task.id=$1 AND category_tguser.tguser_id=$2", taskID, tguserID).Scan(&user)
+	tx.MustExec("UPDATE tguser SET select_task=NULL WHERE id=$1", tguserID)
+	tx.MustExec("DELETE FROM task WHERE id=$1", taskID)
+	err := tx.Commit()
 	if err != nil {
 		return err
 	}
-	tx.MustExec("DELETE FROM task WHERE id=$1", taskID)
-	tx.Commit()
-
 	return nil
 }
 
 func CompleteTask(db *sqlx.DB, taskID int) error {
 	tx := db.MustBegin()
-	tx.MustExec("UPDATE task set complete=$1 WHERE id=$2", true, taskID)
+	tx.MustExec("UPDATE task SET complete=$1 WHERE id=$2", true, taskID)
 	err := tx.Commit()
 	if err != nil {
 		return err

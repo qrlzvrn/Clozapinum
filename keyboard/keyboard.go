@@ -51,6 +51,16 @@ var SelectedCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToAllCategoriesKeyboard"),
+		tgbotapi.NewInlineKeyboardButtonData("Удалить категорию", "deleteCategoryQuestion"),
+	),
+)
+
+//DeleteCategoryKeyboard - клавиатура позволяющая согласиться с удалением категории
+//или отказаться
+var DeleteCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Да", "deleteCategory"),
+		tgbotapi.NewInlineKeyboardButtonData("Нет", "backToListTasks"),
 	),
 )
 
@@ -67,7 +77,7 @@ var SelectTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 var TaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Выполнить", "complete"),
-		tgbotapi.NewInlineKeyboardButtonData("Удалить", "delete"),
+		tgbotapi.NewInlineKeyboardButtonData("Удалить", "deleteTask"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Изменить", "change"),
@@ -81,7 +91,7 @@ var TaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 var CompletedTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Изменить", "change"),
-		tgbotapi.NewInlineKeyboardButtonData("Удалить", "delete"),
+		tgbotapi.NewInlineKeyboardButtonData("Удалить", "deleteTask"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListTasks"),

@@ -287,7 +287,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 
 		msg = nil
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allCategoriesKeyboard)
-		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Ваши категории")
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Ваши категории:")
 
 		err = db.ChangeUserState(conn, tguserID, "allCategories")
 		if err != nil {
@@ -295,8 +295,6 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		}
 
 	case "backToListTasks":
-		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.SelectedCategoryKeyboard)
 
 		conn, err := db.ConnectToBD()
 		if err != nil {
@@ -315,6 +313,8 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 			log.Panic(err)
 		}
 
+		msg = nil
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.SelectedCategoryKeyboard)
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasks)
 
 		err = db.ChangeUserState(conn, tguserID, "taskSelection")
@@ -372,10 +372,89 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 				log.Panic(err)
 			}
 			msg = nil
-			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно выполнена\n\n"+text)
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно выполнена!\n\n"+text)
 		}
-	case "delete":
-		//
+	case "deleteTask":
+		tguserID := callbackQuery.From.ID
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		taskID, err := db.CheckSelectTaskID(conn, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = db.DeleteTask(conn, taskID, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		allTasks, err := db.ListTasks(conn, categoryID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = db.ChangeUserState(conn, tguserID, "taskSelection")
+		if err != nil {
+			log.Panic(err)
+		}
+
+		msg = nil
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.SelectedCategoryKeyboard)
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно удалена!\n\n"+allTasks)
+	case "deleteCategoryQuestion":
+		msg = nil
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.DeleteCategoryKeyboard)
+		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Вы уверены, что хотите удалить данную категорию?")
+	case "deleteCategory":
+		tguserID := callbackQuery.From.ID
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = db.DeleteCategory(conn, tguserID, categoryID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		allCategories, err := db.ListAllCategories(conn, tguserID)
+		if err == nil && allCategories == nil {
+			msg = nil
+			newKeyboard = nil
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Для того, что бы начать, нужно создать категорию. Введите название:")
+
+			err = db.ChangeUserState(conn, tguserID, "categoryCreation")
+			if err != nil {
+				log.Panic(err)
+			}
+		} else if err == nil && allCategories != nil {
+
+			msg = nil
+
+			allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
+			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allCategoriesKeyboard)
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Категория успешно удалена!\n\nВаши категории:")
+		} else {
+			log.Panic(err)
+		}
+
 	case "change":
 		//
 	case "changeTitle":
@@ -408,7 +487,7 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 			}
 			msg = nil
 			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateTaskKeyboard)
-			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Пока что категория пуста. Давайте добавим первую задачу.\nВведите название задачи:")
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Пока что категория пуста. Давайте добавим первую задачу.\n\nВведите название задачи:")
 		} else if err != nil {
 			log.Panic(err)
 		} else {
