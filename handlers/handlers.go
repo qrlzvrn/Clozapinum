@@ -217,7 +217,59 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 				}
 			}
 		case "changedTaskTitle":
-			//
+			conn, err := db.ConnectToBD()
+			if err != nil {
+				log.Panic(err)
+			}
+			defer conn.Close()
+
+			tguserID := message.From.ID
+			taskID, err := db.CheckSelectTaskID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			newTitle := message.Text
+
+			if len([]rune(newTitle)) > 255 {
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется длина вашего заголовка слишком велика, попробуте сократить его")
+				msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+				msg = msgConf
+				newKeyboard = nil
+				newText = nil
+			} else {
+
+				err = db.ChangeTaskTitle(conn, tguserID, taskID, newTitle)
+				if err != nil {
+					log.Panic(err)
+				} else {
+
+					text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+					if err != nil {
+						log.Panic(err)
+					} else {
+						msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
+
+						isComplete, err := db.IsComplete(conn, taskID)
+						if err == nil && isComplete == false {
+							msgConf.ReplyMarkup = keyboard.TaskKeyboard
+						} else if err == nil && isComplete == true {
+							msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+						} else {
+							log.Panic(err)
+						}
+						msgConf.Text = "Заголовок вашей задачи успешно изменен!\n\n" + text
+						msg = msgConf
+						newKeyboard = nil
+						newText = nil
+					}
+
+				}
+			}
 		case "changedTaskDescribe":
 			//
 		case "changedTaskDeadline":
@@ -456,10 +508,31 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		}
 
 	case "change":
-		//
+		msg = nil
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChangeTaskKeyboard)
+		newText = nil
 	case "changeTitle":
-		//
+		tguserID := callbackQuery.From.ID
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		err = db.ChangeUserState(conn, tguserID, "changedTaskTitle")
+		if err != nil {
+			log.Panic(err)
+		}
+		msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите новый заголовок задачи:")
+		msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+		msg = msgConf
+		newKeyboard = nil
+		newText = nil
 	case "changeDescription":
+		//
+	case "changeDeadline":
 		//
 	default:
 		categoryID := callbackQuery.Data

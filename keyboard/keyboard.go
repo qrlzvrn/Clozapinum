@@ -106,6 +106,13 @@ var ChangeTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardButtonData("Описание", "changeDescription"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Дедлайн", "changeDeadline"),
+		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToTask"),
+	),
+)
+
+var ChangeSomethingInTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToTask"),
 	),
 )

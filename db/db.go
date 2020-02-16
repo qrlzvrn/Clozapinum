@@ -344,9 +344,13 @@ func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, er
 	return text, nil
 }
 
-func ChangeTask() error {
-	//
-	//
+func ChangeTaskTitle(db *sqlx.DB, tguserID int, taskID int, text string) error {
+	tx := db.MustBegin()
+	db.MustExec("UPDATE task SET title=$1 WHERE id=$2", text, taskID)
+	err := tx.Commit()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
