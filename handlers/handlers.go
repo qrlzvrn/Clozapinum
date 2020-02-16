@@ -270,8 +270,49 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 
 				}
 			}
-		case "changedTaskDescribe":
-			//
+		case "changedTaskDescription":
+			conn, err := db.ConnectToBD()
+			if err != nil {
+				log.Panic(err)
+			}
+			defer conn.Close()
+
+			tguserID := message.From.ID
+			taskID, err := db.CheckSelectTaskID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			newDescription := message.Text
+
+			err = db.ChangeTaskDescription(conn, tguserID, taskID, newDescription)
+			if err != nil {
+				log.Panic(err)
+			} else {
+				text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+				if err != nil {
+					log.Panic(err)
+				} else {
+					msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
+
+					isComplete, err := db.IsComplete(conn, taskID)
+					if err == nil && isComplete == false {
+						msgConf.ReplyMarkup = keyboard.TaskKeyboard
+					} else if err == nil && isComplete == true {
+						msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+					} else {
+						log.Panic(err)
+					}
+					msgConf.Text = "Заголовок вашей задачи успешно изменен!\n\n" + text
+					msg = msgConf
+					newKeyboard = nil
+					newText = nil
+				}
+
+			}
 		case "changedTaskDeadline":
 			//
 		}
@@ -531,7 +572,24 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		newKeyboard = nil
 		newText = nil
 	case "changeDescription":
-		//
+		tguserID := callbackQuery.From.ID
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		err = db.ChangeUserState(conn, tguserID, "changedTaskDescription")
+		if err != nil {
+			log.Panic(err)
+		}
+		msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите новое описание:")
+		msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+		msg = msgConf
+		newKeyboard = nil
+		newText = nil
 	case "changeDeadline":
 		//
 	default:

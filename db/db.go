@@ -354,6 +354,26 @@ func ChangeTaskTitle(db *sqlx.DB, tguserID int, taskID int, text string) error {
 	return nil
 }
 
+func ChangeTaskDescription(db *sqlx.DB, tguserID int, taskID int, text string) error {
+	tx := db.MustBegin()
+	db.MustExec("UPDATE task SET description=$1 WHERE id=$2", text, taskID)
+	err := tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ChangeTaskDeadline(db *sqlx.DB, tguserID int, taskID int, text string) error {
+	tx := db.MustBegin()
+	db.MustExec("UPDATE task SET description=$1 WHERE id=$2", text, taskID)
+	err := tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func ListTasks(db *sqlx.DB, categoryID int) (string, error) {
 	var isExist string
 	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1)", categoryID).Scan(&isExist)
