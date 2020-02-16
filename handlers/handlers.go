@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"log"
+	"regexp"
 	"strconv"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	db "github.com/qrlzvrn/Clozapinum/db"
@@ -133,7 +135,7 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 			}
 
 			if problem == "dateErr" {
-				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, с вашим дедлайном что-то не так, вы точно ввели его в формате дд.мм.гггг? Попробуте еще раз")
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, с вашим дедлайном что-то не так, вы точно ввели его в формате дд.мм.гггг? Может быть такой даты не существует? Попробуте еще раз")
 				msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
 
 				msg = msgConf
@@ -314,7 +316,72 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 
 			}
 		case "changedTaskDeadline":
-			//
+			conn, err := db.ConnectToBD()
+			if err != nil {
+				log.Panic(err)
+			}
+			defer conn.Close()
+
+			tguserID := message.From.ID
+			taskID, err := db.CheckSelectTaskID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+			if err != nil {
+				log.Panic(err)
+			}
+			newDeadline := message.Text
+
+			deadlineOK, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, newDeadline)
+			if deadlineOK == false {
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется ваш дедлайн не соответсвтует формату дд.мм.гггг. Попробуйте снова")
+				msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+				msg = msgConf
+				newKeyboard = nil
+				newText = nil
+			} else {
+
+				layout := "02.01.2006"
+				t, err := time.Parse(layout, newDeadline)
+				if err != nil {
+					msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется такой даты не существует. Попросбуйте еще раз")
+					msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+					msg = msgConf
+					newKeyboard = nil
+					newText = nil
+				} else {
+					fmtDeadline := t.Format("01-02-2006")
+
+					err = db.ChangeTaskDeadline(conn, tguserID, taskID, fmtDeadline)
+					if err != nil {
+						log.Panic(err)
+					} else {
+						text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+						if err != nil {
+							log.Panic(err)
+						} else {
+							msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
+
+							isComplete, err := db.IsComplete(conn, taskID)
+							if err == nil && isComplete == false {
+								msgConf.ReplyMarkup = keyboard.TaskKeyboard
+							} else if err == nil && isComplete == true {
+								msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+							} else {
+								log.Panic(err)
+							}
+							msgConf.Text = "Дедлайн вашей задачи успешно изменен!\n\n" + text
+							msg = msgConf
+							newKeyboard = nil
+							newText = nil
+						}
+
+					}
+				}
+			}
 		}
 		//обработка сообщений польователей о названии, описании, дедлайну задачи или категории
 		//делаем запрос к бд и в зависимости от значения поля state решаем, что делать
@@ -415,9 +482,38 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 			log.Panic(err)
 		}
 	case "backToTask":
-		msg = nil
-		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChangeTaskKeyboard)
-		newText = nil
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		tguserID := callbackQuery.From.ID
+		categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+		taskID, err := db.CheckSelectTaskID(conn, tguserID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+		if err != nil {
+			log.Panic(err)
+		} else {
+
+			isComplete, err := db.IsComplete(conn, taskID)
+			if err == nil && isComplete == false {
+				newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.TaskKeyboard)
+			} else if err == nil && isComplete == true {
+				newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CompletedTaskKeyboard)
+			} else {
+				log.Panic(err)
+			}
+			msg = nil
+			newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно выполнена!\n\n"+text)
+		}
 	case "choose":
 		//проверяем выполнена ли задача и в зависимости от этого выдаем клавиатуру
 		msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите id задачи:")
@@ -591,7 +687,24 @@ func InlineQueryHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattab
 		newKeyboard = nil
 		newText = nil
 	case "changeDeadline":
-		//
+		tguserID := callbackQuery.From.ID
+
+		conn, err := db.ConnectToBD()
+		if err != nil {
+			log.Panic(err)
+		}
+		defer conn.Close()
+
+		err = db.ChangeUserState(conn, tguserID, "changedTaskDeadline")
+		if err != nil {
+			log.Panic(err)
+		}
+		msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите новый дедлайн:")
+		msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+		msg = msgConf
+		newKeyboard = nil
+		newText = nil
 	default:
 		categoryID := callbackQuery.Data
 		tguserID := callbackQuery.From.ID

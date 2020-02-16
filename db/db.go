@@ -366,7 +366,7 @@ func ChangeTaskDescription(db *sqlx.DB, tguserID int, taskID int, text string) e
 
 func ChangeTaskDeadline(db *sqlx.DB, tguserID int, taskID int, text string) error {
 	tx := db.MustBegin()
-	db.MustExec("UPDATE task SET description=$1 WHERE id=$2", text, taskID)
+	db.MustExec("UPDATE task SET deadline=$1 WHERE id=$2", text, taskID)
 	err := tx.Commit()
 	if err != nil {
 		return err
