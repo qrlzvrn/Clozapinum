@@ -10,7 +10,7 @@ require (
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/jackc/pgx/v4 v4.3.0
 	github.com/jmoiron/sqlx v1.2.0
-	github.com/kelseyhightower/envconfig v1.4.0 // indirect
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.2.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114 // indirect

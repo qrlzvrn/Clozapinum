@@ -1,6 +1,7 @@
 package bd
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -8,10 +9,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/qrlzvrn/Clozapinum/config"
 )
 
 func ConnectToBD() (*sqlx.DB, error) {
-	db, err := sqlx.Connect("postgres", "user=qrlzvrn dbname=clozapinum sslmode=disable")
+	dbConf, err := config.NewDBConf()
+
+	dbInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", dbConf.Host, dbConf.Port, dbConf.User, dbConf.Password, dbConf.Name)
+
+	db, err := sqlx.Connect("postgres", dbInfo)
 	if err != nil {
 		return nil, err
 	}
