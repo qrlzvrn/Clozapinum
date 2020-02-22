@@ -3,14 +3,24 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/qrlzvrn/Clozapinum/config"
 	"github.com/qrlzvrn/Clozapinum/handlers"
 )
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_APITOKEN"))
+	botConfig, err := config.NewTgBotConf()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	sslConfig, err := config.NewSSLConf()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	bot, err := tgbotapi.NewBotAPI(botConfig.APIToken)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -28,7 +38,7 @@ func main() {
 	}
 
 	updates := bot.ListenForWebhook("/" + bot.Token)
-	go http.ListenAndServeTLS(":8443", "/etc/letsencrypt/live/clozapinum.cf/fullchain.pem", "/etc/letsencrypt/live/clozapinum.cf/privkey.pem", nil)
+	go http.ListenAndServeTLS(":8443", sslConfig.Fullchain, sslConfig.Privkey, nil)
 
 	for update := range updates {
 		if update.Message != nil {
