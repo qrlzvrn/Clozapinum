@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  tgBot:
+    build:
+      context: .
+    restart: on-failure
+    ports:
+      - 8433:8433
+    volumes:
+      - 'etc/letsencrypt/live/:etc/letsencrypt/live/'
+    env_file:
+      - .env/tgBot.env
+  db:
+    image: postgres:latest
+    restart: on-failure
+    ports:
+      - 5432:5432
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - /var/lib/postgresql/data:/var/lib/postgresql/data
+    env_file:
+      - .env/db.env 
