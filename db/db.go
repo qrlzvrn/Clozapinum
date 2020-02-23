@@ -15,7 +15,7 @@ import (
 func ConnectToBD() (*sqlx.DB, error) {
 	dbConf, err := config.NewDBConf()
 
-	dbInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", dbConf.Host, dbConf.Port, dbConf.User, dbConf.Password, dbConf.Name)
+	dbInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", dbConf.Host, dbConf.Port, dbConf.Username, dbConf.Password, dbConf.Name)
 
 	db, err := sqlx.Connect("postgres", dbInfo)
 	if err != nil {
