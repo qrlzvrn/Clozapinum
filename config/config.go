@@ -11,7 +11,7 @@ import "github.com/kelseyhightower/envconfig"
 type DB struct {
 	Host     string
 	Port     int
-	User     string
+	Username string
 	Password string
 	Name     string
 }
@@ -28,36 +28,36 @@ type SSL struct {
 }
 
 // NewDBConf - генерирует новый конфиг для работы с базой данных
-func NewDBConf() (*DB, error) {
-	db := new(DB)
+func NewDBConf() (DB, error) {
+	db := DB{}
 
 	err := envconfig.Process("db", &db)
 	if err != nil {
-		return nil, err
+		return db, err
 	}
 
 	return db, nil
 }
 
 // NewTgBotConf - генерирует новый конфиг с информацией о телеграм боте
-func NewTgBotConf() (*TgBot, error) {
-	tgBot := new(TgBot)
+func NewTgBotConf() (TgBot, error) {
+	tgBot := TgBot{}
 
 	err := envconfig.Process("telegram", &tgBot)
 	if err != nil {
-		return nil, err
+		return tgBot, err
 	}
 
 	return tgBot, nil
 }
 
 // NewSSLConf - генерирует новый конфиг с информацией о SSL
-func NewSSLConf() (*SSL, error) {
-	ssl := new(SSL)
+func NewSSLConf() (SSL, error) {
+	ssl := SSL{}
 
 	err := envconfig.Process("ssl", &ssl)
 	if err != nil {
-		return nil, err
+		return ssl, err
 	}
 
 	return ssl, nil
