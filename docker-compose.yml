@@ -1,16 +1,18 @@
 version: '3'
 
 services:
-  tgBot:
+  bot:
     build:
       context: .
     restart: on-failure
     ports:
-      - 8433:8433
+      - 8443:8443
     volumes:
-      - 'etc/letsencrypt/live/:etc/letsencrypt/live/'
+      - /etc/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - db
     env_file:
-      - .env/tgBot.env
+      ./.env/tgBot.env
   db:
     image: postgres:latest
     restart: on-failure
@@ -20,4 +22,6 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
       - /var/lib/postgresql/data:/var/lib/postgresql/data
     env_file:
-      - .env/db.env 
+      ./.env/db.env
+    environment:
+     - PGDATA=/var/lib/postgresql/data/clozapinum
