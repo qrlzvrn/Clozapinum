@@ -60,7 +60,7 @@ func main() {
 				}
 			}
 		} else if update.CallbackQuery != nil {
-			msg, newKeyboard, newText := handlers.InlineQueryHandler(update.CallbackQuery)
+			msg, newKeyboard, newText := handlers.CallbackHandler(update.CallbackQuery)
 
 			if msg != nil {
 				if _, err := bot.Send(msg); err != nil {
