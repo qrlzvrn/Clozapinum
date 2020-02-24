@@ -110,7 +110,7 @@ func DeleteCategory(db *sqlx.DB, tguserID int, categoryID int) error {
 	tx.MustExec("UPDATE tguser SET select_task=NULL WHERE id=$1", tguserID)
 	tx.MustExec("DELETE FROM task WHERE category_id=$1", categoryID)
 	tx.MustExec("DELETE FROM category_tguser WHERE category_id=$1", categoryID)
-	tx.MustExec("DELETE FROM category WHERE category_id=$1", categoryID)
+	tx.MustExec("DELETE FROM category WHERE id=$1", categoryID)
 	err := tx.Commit()
 	if err != nil {
 		return err
