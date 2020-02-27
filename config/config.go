@@ -1,6 +1,9 @@
 package config
 
-import "github.com/kelseyhightower/envconfig"
+import (
+	"github.com/kelseyhightower/envconfig"
+	"github.com/qrlzvrn/Clozapinum/erro"
+)
 
 // Используя библиотеку envconfig считываем в структуры необходимые данные из переменных окружения.
 // В случае работы с докером переменные окружения прописываются в .env файле и передаются в докер.
@@ -28,36 +31,40 @@ type SSL struct {
 }
 
 // NewDBConf - генерирует новый конфиг для работы с базой данных
-func NewDBConf() (DB, error) {
+func NewDBConf() (DB, erro.Err) {
 	db := DB{}
 
 	err := envconfig.Process("db", &db)
 	if err != nil {
-		return db, err
+		e := erro.NewConfigError("NewDBConf", err)
+		return db, e
 	}
 
 	return db, nil
 }
 
 // NewTgBotConf - генерирует новый конфиг с информацией о телеграм боте
-func NewTgBotConf() (TgBot, error) {
+func NewTgBotConf() (TgBot, erro.Err) {
 	tgBot := TgBot{}
 
 	err := envconfig.Process("telegram", &tgBot)
 	if err != nil {
-		return tgBot, err
+		e := erro.NewConfigError("NewTgBotConf", err)
+		return tgBot, e
 	}
 
 	return tgBot, nil
 }
 
 // NewSSLConf - генерирует новый конфиг с информацией о SSL
-func NewSSLConf() (SSL, error) {
+func NewSSLConf() (SSL, erro.Err) {
 	ssl := SSL{}
 
 	err := envconfig.Process("ssl", &ssl)
 	if err != nil {
-		return ssl, err
+
+		e := erro.NewConfigError("NewSSLConf", err)
+		return ssl, e
 	}
 
 	return ssl, nil

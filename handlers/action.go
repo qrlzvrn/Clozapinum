@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"regexp"
 	"strconv"
 	"time"
@@ -9,6 +8,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	db "github.com/qrlzvrn/Clozapinum/db"
+	"github.com/qrlzvrn/Clozapinum/erro"
 	keyboard "github.com/qrlzvrn/Clozapinum/keyboard"
 )
 
@@ -23,24 +23,23 @@ var msg, newKeyboard, newText tgbotapi.Chattable
 // Реализация функционала команд /start, /help и тех, что будут добавлены в будущем
 
 // Start ...
-func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	tguserID := message.From.ID
 
 	conn, err := db.ConnectToBD()
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	defer conn.Close()
 
 	//Проверяем наличие пользователя в базе,
 	//если пользователь существует, то переходим к проверке категорий
 	//если нет, тогда добавляем его в базу и предлагаем создать новую категорию
-	isExist, err := db.CheckUser(conn, tguserID)
-	if err == nil && isExist == false {
+	if isExist, err := db.CheckUser(conn, tguserID); err == nil && isExist == false {
 		err := db.CreateUser(conn, tguserID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 
 		msg = tgbotapi.NewMessage(message.Chat.ID, "Для того, что бы начать, нужно создать категорию. Введите название:")
@@ -49,7 +48,7 @@ func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, t
 
 		err = db.ChangeUserState(conn, tguserID, "categoryCreation")
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 
 	} else if err == nil && isExist == true {
@@ -65,7 +64,7 @@ func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, t
 
 			err = db.ChangeUserState(conn, tguserID, "categoryCreation")
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 		} else if err == nil && allCategories != nil {
 
@@ -76,29 +75,29 @@ func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, t
 			newKeyboard = nil
 			newText = nil
 		} else {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 	}
 	return msg, newKeyboard, newText, nil
 }
 
 // Help ...
-func Help(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func Help(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable) {
 
 	msg = tgbotapi.NewMessage(message.Chat.ID, "Спешу на помощь, подождите немного, я сделаю все, что в моих силах")
 	newKeyboard = nil
 	newText = nil
 
-	return msg, newKeyboard, newText, nil
+	return msg, newKeyboard, newText
 }
 
 // Default ...
-func Default(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func Default(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable) {
 	msg = tgbotapi.NewMessage(message.Chat.ID, "Простите, я так не умею :с")
 	newKeyboard = nil
 	newText = nil
 
-	return msg, newKeyboard, newText, nil
+	return msg, newKeyboard, newText
 }
 
 // Функции идущие далее служат для обработки текстовых сообщений пользователей.
@@ -106,11 +105,11 @@ func Default(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable,
 // то название данных функций соответсвует пришедшему значению.
 
 // CategoryCreationAct ...
-func CategoryCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func CategoryCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	nameCategory := message.Text
 	err := db.CreateCategory(conn, tguserID, nameCategory)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	allCategories, err := db.ListAllCategories(conn, tguserID)
 	allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
@@ -125,46 +124,45 @@ func CategoryCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int)
 }
 
 // TaskCreationAct ...
-func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	title := message.Text
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
-	}
-	problem, err := db.CreateTask(conn, categoryID, title)
-	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
-	if problem == "titleIsNotDeadline" || problem == "nilTitle" {
-		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Простите, но у задачи обязательно должно быть название. Попробуйте еще раз")
-		msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
+	if err := db.CreateTask(conn, categoryID, title); err != nil {
+		_, r := err.Erro()
+		if r == "TitleIsNotDeadline" || r == "NilTitle" {
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Простите, но у задачи обязательно должно быть название. Попробуйте еще раз")
+			msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
 
-		msg = msgConf
-		newKeyboard = nil
-		newText = nil
+			msg = msgConf
+			newKeyboard = nil
+			newText = nil
 
-		return msg, newKeyboard, newText, nil
-	}
+			return msg, newKeyboard, newText, nil
+		}
 
-	if problem == "dateErr" {
-		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, с вашим дедлайном что-то не так, вы точно ввели его в формате дд.мм.гггг? Может быть такой даты не существует? Попробуте еще раз")
-		msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
+		if r == "dateErr" {
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, с вашим дедлайном что-то не так, вы точно ввели его в формате дд.мм.гггг? Может быть такой даты не существует? Попробуте еще раз")
+			msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
 
-		msg = msgConf
-		newKeyboard = nil
-		newText = nil
+			msg = msgConf
+			newKeyboard = nil
+			newText = nil
 
-		return msg, newKeyboard, newText, nil
+			return msg, newKeyboard, newText, nil
+		}
 	}
 
 	allTasks, err := db.ListTasks(conn, categoryID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	err = db.ChangeUserState(conn, tguserID, "taskSelection")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	msgConf := tgbotapi.NewMessage(message.Chat.ID, "Задача успешно создана!\n\n"+allTasks)
@@ -178,14 +176,13 @@ func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tg
 }
 
 // TaskSelectionAct ...
-func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	taskID := message.Text
-	intTaskID, err := strconv.Atoi(taskID)
-	if err != nil {
+	if intTaskID, err := strconv.Atoi(taskID); err != nil {
 		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется вы ввели что-то не то. Вы должны ввести id задачи. Давайте попробуем еще раз.\n\nВведите id задачи:")
 		msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
 
@@ -197,7 +194,7 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 
 		isExist, err := db.IsTaskExist(conn, categoryID, intTaskID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		} else if isExist == false {
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, у вас нет задачи с таким id. Давайте попробуем еще раз?\n\nВведите id задачи:")
 			msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
@@ -209,49 +206,44 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 		} else if isExist == true {
 
 			text, err := db.ViewTask(conn, categoryID, intTaskID, tguserID)
-			if err != nil && text == "taskSelectionErr" {
-				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, у вас нет задачи с таким id. Давайте попробуем еще раз?\n\nВведите id задачи:")
-				msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
-
-				msg = msgConf
-				newKeyboard = nil
-				newText = nil
-
-			} else {
-				err = db.ChangeSelectTask(conn, tguserID, intTaskID)
-				if err != nil {
-					log.Panic(err)
-				}
-
-				msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
-
-				isComplete, err := db.IsComplete(conn, intTaskID)
-				if err == nil && isComplete == false {
-					msgConf.ReplyMarkup = keyboard.TaskKeyboard
-				} else if err == nil && isComplete == true {
-					msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
-				} else {
-					log.Panic(err)
-				}
-
-				msg = msgConf
-				newKeyboard = nil
-				newText = nil
+			if err != nil {
+				return nil, nil, nil, err
 			}
+
+			err = db.ChangeSelectTask(conn, tguserID, intTaskID)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
+
+			isComplete, err := db.IsComplete(conn, intTaskID)
+			if err == nil && isComplete == false {
+				msgConf.ReplyMarkup = keyboard.TaskKeyboard
+			} else if err == nil && isComplete == true {
+				msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+			} else {
+				return nil, nil, nil, err
+			}
+
+			msg = msgConf
+			newKeyboard = nil
+			newText = nil
+
 		}
 	}
 	return msg, newKeyboard, newText, nil
 }
 
 // ChangedTaskTitleAct ...
-func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	taskID, err := db.CheckSelectTaskID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	newTitle := message.Text
 
@@ -266,12 +258,12 @@ func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int)
 
 		err = db.ChangeTaskTitle(conn, tguserID, taskID, newTitle)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		} else {
 
 			text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			} else {
 				msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
 
@@ -281,7 +273,7 @@ func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int)
 				} else if err == nil && isComplete == true {
 					msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
 				} else {
-					log.Panic(err)
+					return nil, nil, nil, err
 				}
 				msgConf.Text = "Заголовок вашей задачи успешно изменен!\n\n" + text
 				msg = msgConf
@@ -295,24 +287,24 @@ func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int)
 }
 
 // ChangedTaskDescriptionAct ...
-func ChangedTaskDescriptionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangedTaskDescriptionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	taskID, err := db.CheckSelectTaskID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	newDescription := message.Text
 
 	err = db.ChangeTaskDescription(conn, tguserID, taskID, newDescription)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	} else {
 		text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		} else {
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
 
@@ -322,7 +314,7 @@ func ChangedTaskDescriptionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserI
 			} else if err == nil && isComplete == true {
 				msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
 			} else {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 			msgConf.Text = "Заголовок вашей задачи успешно изменен!\n\n" + text
 			msg = msgConf
@@ -335,69 +327,68 @@ func ChangedTaskDescriptionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserI
 }
 
 // ChangedTaskDeadlineAct ...
-func ChangedTaskDeadlineAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangedTaskDeadlineAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	conn, err := db.ConnectToBD()
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	defer conn.Close()
 
-	taskID, err := db.CheckSelectTaskID(conn, tguserID)
-	if err != nil {
-		log.Panic(err)
-	}
-	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
-	if err != nil {
-		log.Panic(err)
-	}
-	newDeadline := message.Text
-
-	deadlineOK, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, newDeadline)
-	if deadlineOK == false {
-		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется ваш дедлайн не соответсвтует формату дд.мм.гггг. Попробуйте снова")
-		msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
-
-		msg = msgConf
-		newKeyboard = nil
-		newText = nil
+	if taskID, err := db.CheckSelectTaskID(conn, tguserID); err != nil {
+		return nil, nil, nil, err
 	} else {
-
-		layout := "02.01.2006"
-		t, err := time.Parse(layout, newDeadline)
+		categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 		if err != nil {
-			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется такой даты не существует. Попросбуйте еще раз")
+			return nil, nil, nil, err
+		}
+		newDeadline := message.Text
+
+		deadlineOK, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, newDeadline)
+		if deadlineOK == false {
+			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется ваш дедлайн не соответсвтует формату дд.мм.гггг. Попробуйте снова")
 			msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
 
 			msg = msgConf
 			newKeyboard = nil
 			newText = nil
 		} else {
-			fmtDeadline := t.Format("01-02-2006")
 
-			err = db.ChangeTaskDeadline(conn, tguserID, taskID, fmtDeadline)
+			layout := "02.01.2006"
+			t, err := time.Parse(layout, newDeadline)
 			if err != nil {
-				log.Panic(err)
+				msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется такой даты не существует. Попросбуйте еще раз")
+				msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
+
+				msg = msgConf
+				newKeyboard = nil
+				newText = nil
 			} else {
-				text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
-				if err != nil {
-					log.Panic(err)
+				fmtDeadline := t.Format("01-02-2006")
+
+				if err := db.ChangeTaskDeadline(conn, tguserID, taskID, fmtDeadline); err != nil {
+					return nil, nil, nil, err
 				} else {
-					msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
-
-					isComplete, err := db.IsComplete(conn, taskID)
-					if err == nil && isComplete == false {
-						msgConf.ReplyMarkup = keyboard.TaskKeyboard
-					} else if err == nil && isComplete == true {
-						msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+					text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+					if err != nil {
+						return nil, nil, nil, err
 					} else {
-						log.Panic(err)
-					}
-					msgConf.Text = "Дедлайн вашей задачи успешно изменен!\n\n" + text
-					msg = msgConf
-					newKeyboard = nil
-					newText = nil
-				}
+						msgConf := tgbotapi.NewMessage(message.Chat.ID, "")
 
+						isComplete, err := db.IsComplete(conn, taskID)
+						if err == nil && isComplete == false {
+							msgConf.ReplyMarkup = keyboard.TaskKeyboard
+						} else if err == nil && isComplete == true {
+							msgConf.ReplyMarkup = keyboard.CompletedTaskKeyboard
+						} else {
+							return nil, nil, nil, err
+						}
+						msgConf.Text = "Дедлайн вашей задачи успешно изменен!\n\n" + text
+						msg = msgConf
+						newKeyboard = nil
+						newText = nil
+					}
+
+				}
 			}
 		}
 	}
@@ -408,11 +399,11 @@ func ChangedTaskDeadlineAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID i
 // Все данные функции относятся к CallbackHandler
 
 // CreateTask ...
-func CreateTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func CreateTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	err := db.ChangeUserState(conn, tguserID, "taskCreation")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	msg = nil
@@ -423,10 +414,10 @@ func CreateTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 }
 
 // CreateCategory ...
-func CreateCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func CreateCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	err := db.ChangeUserState(conn, tguserID, "categoryCreation")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	msg = nil
@@ -437,10 +428,10 @@ func CreateCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguser
 }
 
 // BackToAllCategoriesKeyboard ...
-func BackToAllCategoriesKeyboard(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func BackToAllCategoriesKeyboard(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	allCategories, err := db.ListAllCategories(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	allCategoriesKeyboard := keyboard.CreateKeyboarWithAllCategories(allCategories)
 
@@ -450,22 +441,22 @@ func BackToAllCategoriesKeyboard(callbackQuery *tgbotapi.CallbackQuery, conn *sq
 
 	err = db.ChangeUserState(conn, tguserID, "allCategories")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	return msg, newKeyboard, newText, nil
 }
 
 // BackToListTasks ...
-func BackToListTasks(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func BackToListTasks(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	allTasks, err := db.ListTasks(conn, categoryID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	msg = nil
@@ -474,26 +465,26 @@ func BackToListTasks(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguse
 
 	err = db.ChangeUserState(conn, tguserID, "taskSelection")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	return msg, newKeyboard, newText, nil
 }
 
 // BackToTask ...
-func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	taskID, err := db.CheckSelectTaskID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	} else {
 
 		isComplete, err := db.IsComplete(conn, taskID)
@@ -502,7 +493,7 @@ func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 		} else if err == nil && isComplete == true {
 			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CompletedTaskKeyboard)
 		} else {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		msg = nil
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно выполнена!\n\n"+text)
@@ -512,7 +503,7 @@ func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 }
 
 // Choose ...
-func Choose(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func Choose(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите id задачи:")
 	msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
 
@@ -524,24 +515,24 @@ func Choose(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) 
 }
 
 // Complete ....
-func Complete(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func Complete(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	taskID, err := db.CheckSelectTaskID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	err = db.CompleteTask(conn, taskID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	} else {
 
 		isComplete, err := db.IsComplete(conn, taskID)
@@ -550,7 +541,7 @@ func Complete(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int
 		} else if err == nil && isComplete == true {
 			newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CompletedTaskKeyboard)
 		} else {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		msg = nil
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно выполнена!\n\n"+text)
@@ -560,30 +551,30 @@ func Complete(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int
 }
 
 // DeleteTask ....
-func DeleteTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func DeleteTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	taskID, err := db.CheckSelectTaskID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	err = db.DeleteTask(conn, taskID, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	allTasks, err := db.ListTasks(conn, categoryID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	err = db.ChangeUserState(conn, tguserID, "taskSelection")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	msg = nil
@@ -594,25 +585,25 @@ func DeleteTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 }
 
 // ConfirmDeleteCategory ...
-func ConfirmDeleteCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ConfirmDeleteCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable) {
 
 	msg = nil
 	newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.DeleteCategoryKeyboard)
 	newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Вы уверены, что хотите удалить данную категорию?")
 
-	return msg, newKeyboard, newText, nil
+	return msg, newKeyboard, newText
 }
 
 // DeleteCategory ...
-func DeleteCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func DeleteCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	categoryID, err := db.CheckSelectCategoryID(conn, tguserID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	err = db.DeleteCategory(conn, tguserID, categoryID)
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 
 	allCategories, err := db.ListAllCategories(conn, tguserID)
@@ -623,7 +614,7 @@ func DeleteCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguser
 
 		err = db.ChangeUserState(conn, tguserID, "categoryCreation")
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 	} else if err == nil && allCategories != nil {
 
@@ -633,13 +624,13 @@ func DeleteCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguser
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allCategoriesKeyboard)
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Категория успешно удалена!\n\nВаши категории:")
 	} else {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	return msg, newKeyboard, newText, nil
 }
 
 // ChangeTask ...
-func ChangeTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangeTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	msg = nil
 	newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.ChangeTaskKeyboard)
@@ -649,10 +640,10 @@ func ChangeTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 }
 
 // ChangeTitle ...
-func ChangeTitle(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangeTitle(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 	err := db.ChangeUserState(conn, tguserID, "changedTaskTitle")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите новый заголовок задачи:")
 	msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
@@ -664,11 +655,11 @@ func ChangeTitle(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID 
 }
 
 // ChangeDescription ...
-func ChangeDescription(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangeDescription(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	err := db.ChangeUserState(conn, tguserID, "changedTaskDescription")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите новое описание:")
 	msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
@@ -680,11 +671,11 @@ func ChangeDescription(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tgu
 }
 
 // ChangeDeadline ...
-func ChangeDeadline(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ChangeDeadline(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	err := db.ChangeUserState(conn, tguserID, "changedTaskDeadline")
 	if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	}
 	msgConf := tgbotapi.NewMessage(callbackQuery.Message.Chat.ID, "Введите новый дедлайн:")
 	msgConf.ReplyMarkup = keyboard.ChangeSomethingInTaskKeyboard
@@ -696,29 +687,29 @@ func ChangeDeadline(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguser
 }
 
 // ViewCategory ...
-func ViewCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
+func ViewCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	categoryID := callbackQuery.Data
 	intCategoryID, err := strconv.Atoi(categoryID)
 	if err != nil {
-		log.Panic(err)
+		e := erro.NewAtoiError("ViewCategory", err)
+		return nil, nil, nil, e
 	}
 
-	allTasks, err := db.ListTasks(conn, intCategoryID)
-	if err == nil && allTasks == "" {
+	if allTasks, err := db.ListTasks(conn, intCategoryID); err == nil && allTasks == "" {
 		err = db.ChangeSelectCategory(conn, tguserID, intCategoryID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		err = db.ChangeUserState(conn, tguserID, "taskCreation")
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		msg = nil
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateTaskKeyboard)
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Пока что категория пуста. Давайте добавим первую задачу.\n\nВведите название задачи:")
 	} else if err != nil {
-		log.Panic(err)
+		return nil, nil, nil, err
 	} else {
 
 		msg = nil
@@ -727,18 +718,18 @@ func ViewCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID
 
 		allTasks, err := db.ListTasks(conn, intCategoryID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasks)
 
 		err = db.ChangeUserState(conn, tguserID, "taskSelection")
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 
 		err = db.ChangeSelectCategory(conn, tguserID, intCategoryID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 	}
 

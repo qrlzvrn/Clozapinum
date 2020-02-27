@@ -14,6 +14,7 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114 // indirect
+	github.com/sirupsen/logrus v1.4.2
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72 // indirect
 )

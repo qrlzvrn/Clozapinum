@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"log"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	db "github.com/qrlzvrn/Clozapinum/db"
+	"github.com/qrlzvrn/Clozapinum/erro"
 )
 
 //MessageHandler - перехватывает простые текстовые сообщения и выдает один или несколько конфигов ответных сообщений
-func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable) {
+func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
 
 	if message.IsCommand() {
 		cmd := message.Command()
@@ -16,25 +15,19 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 		case "start":
 			msg, newKeyboard, newText, err := Start(message)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 
 		case "help":
-			msg, newKeyboard, newText, err := Help(message)
-			if err != nil {
-				log.Panic(err)
-			}
+			msg, newKeyboard, newText := Help(message)
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		default:
-			msg, newKeyboard, newText, err := Default(message)
-			if err != nil {
-				log.Panic(err)
-			}
+			msg, newKeyboard, newText := Default(message)
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		}
 	} else {
 		//Обрабатываем обычные текстовые сообщения
@@ -43,59 +36,59 @@ func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Cha
 
 		conn, err := db.ConnectToBD()
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		defer conn.Close()
 
 		state, err := db.CheckUserState(conn, tguserID)
 		if err != nil {
-			log.Panic(err)
+			return nil, nil, nil, err
 		}
 		switch state {
 		case "categoryCreation":
 			msg, newKeyboard, newText, err := CategoryCreationAct(message, conn, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		case "taskCreation":
 			msg, newKeyboard, newText, err := TaskCreationAct(message, conn, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		case "taskSelection":
 			msg, newKeyboard, newText, err := TaskSelectionAct(message, conn, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		case "changedTaskTitle":
 			msg, newKeyboard, newText, err := ChangedTaskTitleAct(message, conn, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		case "changedTaskDescription":
 			msg, newKeyboard, newText, err := ChangedTaskDescriptionAct(message, conn, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		case "changedTaskDeadline":
 			msg, newKeyboard, newText, err := ChangedTaskDeadlineAct(message, conn, tguserID)
 			if err != nil {
-				log.Panic(err)
+				return nil, nil, nil, err
 			}
 
-			return msg, newKeyboard, newText
+			return msg, newKeyboard, newText, nil
 		}
 	}
 
-	return msg, newKeyboard, newText
+	return msg, newKeyboard, newText, nil
 }
