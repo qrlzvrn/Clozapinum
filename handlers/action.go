@@ -42,7 +42,7 @@ func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, t
 			return nil, nil, nil, err
 		}
 
-		msg = tgbotapi.NewMessage(message.Chat.ID, "Для того, что бы начать, нужно создать категорию. Введите название:")
+		msg = tgbotapi.NewMessage(message.Chat.ID, "Здравствуйте, для того, что бы начать работу, вам нужно создать вашу первую категорию. После этого вы сможете добавлять в нее новые задачи, а так же создавать новые категории и работать с ними. Для ознакомления с правилами и способами создания задач и категорий воспользуйтесь командой /help.\n\nА сейчас, давайте начнем и создадим новую категорию!\nВведите название:")
 		newKeyboard = nil
 		newText = nil
 
