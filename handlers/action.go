@@ -84,7 +84,7 @@ func Start(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, t
 // Help ...
 func Help(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable) {
 
-	msg = tgbotapi.NewMessage(message.Chat.ID, "Спешу на помощь, подождите немного, я сделаю все, что в моих силах")
+	msg = tgbotapi.NewMessage(message.Chat.ID, "Небольшая справка:\n\nСоздание категории:\n\n--1 запуск--\n- Введите команду /start\n- Введите название вашей первой категории\n- Поздравляем, категория успешно создана!\n\n--Дальнейшее использование--\n- Вернитесь к своим категориям и нажмите на кнопку Добавить\n- Введите название вашей новой категории\n- Поздравляем, еще одна категория успешно создана\n\nСоздание задачи:\n\n( Необходимо наличие категории )\n- Переходим в категорию, в котрую вы хотите добавить новую задачу\n- Если категория пуста, то вам будет предложенно ввести вашу задачу\n- Если у вас уже есть задачи в категории, то просто нажмите на кнопку Добавить\n(( Правила и способы создания задач ))\n- Вы можете просто ввести текст задачи и отправить его боту\n- Вы можете добавить к вашей задаче еще и дедлайн, для этого, вам необходимо пропустить одну строку после заголовка вашей задачи ( Дважды нажмите на Enter или Ctr+Enter, если вы работаете за компьютером ) и ввести дату в формате дд.мм.гггг\n- Вы можете так же добавить не только дедлайн, но и описание, так же пропустив одну строкй\n- Вы можете добавить к задаче и дедлайн и описание вместе, или что-то одно.\n- Но если вы хотите добавить и дедлайн и описание, то учтите, что дедлайн должен всегда идти перед описанием.")
 	newKeyboard = nil
 	newText = nil
 
@@ -157,23 +157,23 @@ func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tg
 		return msg, newKeyboard, newText, nil
 	} else {
 
-	allTasks, err := db.ListTasks(conn, categoryID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	err = db.ChangeUserState(conn, tguserID, "taskSelection")
-	if err != nil {
-		return nil, nil, nil, err
-	}
+		allTasks, err := db.ListTasks(conn, categoryID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		err = db.ChangeUserState(conn, tguserID, "taskSelection")
+		if err != nil {
+			return nil, nil, nil, err
+		}
 
-	msgConf := tgbotapi.NewMessage(message.Chat.ID, "Задача успешно создана!\n\n"+allTasks)
-	msgConf.ReplyMarkup = keyboard.SelectedCategoryKeyboard
+		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Задача успешно создана!\n\n"+allTasks)
+		msgConf.ReplyMarkup = keyboard.SelectedCategoryKeyboard
 
-	msg = msgConf
-	newKeyboard = nil
-	newText = nil
+		msg = msgConf
+		newKeyboard = nil
+		newText = nil
 
-	return msg, newKeyboard, newText, nil
+		return msg, newKeyboard, newText, nil
 	}
 }
 
