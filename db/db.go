@@ -189,9 +189,7 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 		title := sliceTaskText[0]
 		deadline := sliceTaskText[1]
 		description := sliceTaskText[2]
-
-		fmtDeadline = "01.01.1998"
-
+		var fmtDeadline string
 		//Проверяем не попал ли deadline в title
 		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
 		if titleErr == true {
@@ -211,6 +209,7 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 		if deadlineOK == false {
 			if deadline == "-" || deadline == "" {
 
+				fmtDeadline = "01.01.1998"
 				layout := "02.01.2006"
 				t, err := time.Parse(layout, fmtDeadline)
 				if err != nil {
@@ -219,10 +218,11 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 					return e
 				}
 				fmtDeadline = t.Format("01-02-2006")
+			} else {
+				err := errors.New("DateErr")
+				e := erro.NewWrapError("CreateTask", err)
+				return e
 			}
-			err := errors.New("DateErr")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
 
 		} else {
 

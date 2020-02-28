@@ -132,8 +132,8 @@ func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tg
 	}
 
 	if err := db.CreateTask(conn, categoryID, title); err != nil {
-		_, r := err.Erro()
-		if r == "TitleIsNotDeadline" || r == "NilTitle" {
+		e, _ := err.Erro()
+		if e.Error() == "TitleIsNotDeadline" || e.Error() == "NilTitle" {
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Простите, но у задачи обязательно должно быть название. Попробуйте еще раз")
 			msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
 
@@ -144,7 +144,7 @@ func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tg
 			return msg, newKeyboard, newText, nil
 		}
 
-		if r == "dateErr" {
+		if e.Error() == "DateErr" {
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется, с вашим дедлайном что-то не так, вы точно ввели его в формате дд.мм.гггг? Может быть такой даты не существует? Попробуте еще раз")
 			msgConf.ReplyMarkup = keyboard.CreateTaskKeyboard
 
@@ -154,7 +154,8 @@ func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tg
 
 			return msg, newKeyboard, newText, nil
 		}
-	}
+		return msg, newKeyboard, newText, nil
+	} else {
 
 	allTasks, err := db.ListTasks(conn, categoryID)
 	if err != nil {
@@ -173,6 +174,7 @@ func TaskCreationAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (tg
 	newText = nil
 
 	return msg, newKeyboard, newText, nil
+	}
 }
 
 // TaskSelectionAct ...
