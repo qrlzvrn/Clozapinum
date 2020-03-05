@@ -207,12 +207,12 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 
 		} else if isExist == true {
 
-			text, err := db.ViewTask(conn, categoryID, intTaskID, tguserID)
+			text, realtaskID, err := db.ViewTask("select", conn, categoryID, intTaskID, tguserID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 
-			err = db.ChangeSelectTask(conn, tguserID, intTaskID)
+			err = db.ChangeSelectTask(conn, tguserID, realtaskID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
@@ -263,7 +263,7 @@ func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int)
 			return nil, nil, nil, err
 		} else {
 
-			text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+			text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 			if err != nil {
 				return nil, nil, nil, err
 			} else {
@@ -304,7 +304,7 @@ func ChangedTaskDescriptionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserI
 	if err != nil {
 		return nil, nil, nil, err
 	} else {
-		text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+		text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 		if err != nil {
 			return nil, nil, nil, err
 		} else {
@@ -370,7 +370,7 @@ func ChangedTaskDeadlineAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID i
 				if err := db.ChangeTaskDeadline(conn, tguserID, taskID, fmtDeadline); err != nil {
 					return nil, nil, nil, err
 				} else {
-					text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+					text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 					if err != nil {
 						return nil, nil, nil, err
 					} else {
@@ -484,7 +484,7 @@ func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 		return nil, nil, nil, err
 	}
 
-	text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+	text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 	if err != nil {
 		return nil, nil, nil, err
 	} else {
@@ -532,7 +532,7 @@ func Complete(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int
 		return nil, nil, nil, err
 	}
 
-	text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+	text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 	if err != nil {
 		return nil, nil, nil, err
 	} else {
