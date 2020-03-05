@@ -364,11 +364,11 @@ func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int
 	var deadline string
 
 	var realTaskID int
-	taskID++
 
 	if mode == "select" {
+		taskID--
 		tx := db.MustBegin()
-		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 LIMIT 1 OFFSET $2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
+		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
 		if err != nil {
 			e := erro.NewWrapError("ViewTask", err)
 			return "", 0, e
@@ -542,7 +542,8 @@ func IsComplete(db *sqlx.DB, taskID int) (bool, erro.Err) {
 
 func IsTaskExist(db *sqlx.DB, categoryID int, taskID int) (bool, erro.Err) {
 	var isExist bool
-	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1 LIMIT 1 OFFSET $2)", categoryID, taskID).Scan(&isExist)
+	taskID--
+	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2)", categoryID, taskID).Scan(&isExist)
 	if err != nil {
 		e := erro.NewWrapError("IsTaskExist", err)
 		return false, e

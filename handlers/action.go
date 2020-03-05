@@ -184,7 +184,7 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 		return nil, nil, nil, err
 	}
 	taskID := message.Text
-	if intTaskID, err := strconv.Atoi(taskID); err != nil {
+	if intTaskID, err := strconv.Atoi(taskID); err != nil || intTaskID < 1 {
 		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется вы ввели что-то не то. Вы должны ввести id задачи. Давайте попробуем еще раз.\n\nВведите id задачи:")
 		msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
 
@@ -207,19 +207,19 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 
 		} else if isExist == true {
 
-			text, realtaskID, err := db.ViewTask("select", conn, categoryID, intTaskID, tguserID)
+			text, realTaskID, err := db.ViewTask("select", conn, categoryID, intTaskID, tguserID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 
-			err = db.ChangeSelectTask(conn, tguserID, realtaskID)
+			err = db.ChangeSelectTask(conn, tguserID, realTaskID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
 
-			isComplete, err := db.IsComplete(conn, intTaskID)
+			isComplete, err := db.IsComplete(conn, realTaskID)
 			if err == nil && isComplete == false {
 				msgConf.ReplyMarkup = keyboard.TaskKeyboard
 			} else if err == nil && isComplete == true {
