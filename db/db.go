@@ -354,7 +354,7 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 	return nil
 }
 
-func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, erro.Err) {
+func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, int, erro.Err) {
 
 	var text string
 
@@ -363,11 +363,27 @@ func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, er
 	var description string
 	var deadline string
 
-	tx := db.MustBegin()
-	err := tx.QueryRow("SELECT title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&title, &description, &complete, &deadline)
-	if err != nil {
-		e := erro.NewWrapError("ViewTask", err)
-		return "", e
+	var realTaskID int
+
+	if mode == "select" {
+		taskID--
+		tx := db.MustBegin()
+		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
+		if err != nil {
+			e := erro.NewWrapError("ViewTask", err)
+			return "", 0, e
+		}
+		tx.Commit()
+
+	} else if mode == "change" {
+		tx := db.MustBegin()
+		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
+		if err != nil {
+			e := erro.NewWrapError("ViewTask", err)
+			return "", 0, e
+		}
+		tx.Commit()
+
 	}
 
 	nilDeadline, _ := regexp.MatchString(`^\-\d+`, deadline)
@@ -403,7 +419,7 @@ func ViewTask(db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, er
 		}
 	}
 
-	return text, nil
+	return text, realTaskID, nil
 }
 
 func ChangeTaskTitle(db *sqlx.DB, tguserID int, taskID int, text string) erro.Err {
@@ -448,18 +464,21 @@ func ListTasks(db *sqlx.DB, categoryID int) (string, erro.Err) {
 	}
 	tasks := [][]string{}
 	if isExist == "true" {
-		rows, err := db.Query("SELECT id, title, complete FROM task WHERE category_id=$1 ORDER BY complete", categoryID)
+		rows, err := db.Query("SELECT title, complete FROM task WHERE category_id=$1 ORDER BY complete", categoryID)
 		if err != nil {
 			e := erro.NewWrapError("ListTasks", err)
 			return "", e
 		}
 
+		id := 1
+
 		for rows.Next() {
-			var id int
 			var title string
 			var complete bool
-			rows.Scan(&id, &title, &complete)
+
+			rows.Scan(&title, &complete)
 			tasks = append(tasks, []string{strconv.Itoa(id), title, strconv.FormatBool(complete)})
+			id++
 			defer rows.Close()
 		}
 	} else {
@@ -523,7 +542,8 @@ func IsComplete(db *sqlx.DB, taskID int) (bool, erro.Err) {
 
 func IsTaskExist(db *sqlx.DB, categoryID int, taskID int) (bool, erro.Err) {
 	var isExist bool
-	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE id=$1 AND category_id=$2)", taskID, categoryID).Scan(&isExist)
+	taskID--
+	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2)", categoryID, taskID).Scan(&isExist)
 	if err != nil {
 		e := erro.NewWrapError("IsTaskExist", err)
 		return false, e

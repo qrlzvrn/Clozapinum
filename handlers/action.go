@@ -184,7 +184,7 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 		return nil, nil, nil, err
 	}
 	taskID := message.Text
-	if intTaskID, err := strconv.Atoi(taskID); err != nil {
+	if intTaskID, err := strconv.Atoi(taskID); err != nil || intTaskID < 1 {
 		msgConf := tgbotapi.NewMessage(message.Chat.ID, "Кажется вы ввели что-то не то. Вы должны ввести id задачи. Давайте попробуем еще раз.\n\nВведите id задачи:")
 		msgConf.ReplyMarkup = keyboard.SelectTaskKeyboard
 
@@ -207,19 +207,19 @@ func TaskSelectionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int) (t
 
 		} else if isExist == true {
 
-			text, err := db.ViewTask(conn, categoryID, intTaskID, tguserID)
+			text, realTaskID, err := db.ViewTask("select", conn, categoryID, intTaskID, tguserID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 
-			err = db.ChangeSelectTask(conn, tguserID, intTaskID)
+			err = db.ChangeSelectTask(conn, tguserID, realTaskID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 
 			msgConf := tgbotapi.NewMessage(message.Chat.ID, text)
 
-			isComplete, err := db.IsComplete(conn, intTaskID)
+			isComplete, err := db.IsComplete(conn, realTaskID)
 			if err == nil && isComplete == false {
 				msgConf.ReplyMarkup = keyboard.TaskKeyboard
 			} else if err == nil && isComplete == true {
@@ -263,7 +263,7 @@ func ChangedTaskTitleAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID int)
 			return nil, nil, nil, err
 		} else {
 
-			text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+			text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 			if err != nil {
 				return nil, nil, nil, err
 			} else {
@@ -304,7 +304,7 @@ func ChangedTaskDescriptionAct(message *tgbotapi.Message, conn *sqlx.DB, tguserI
 	if err != nil {
 		return nil, nil, nil, err
 	} else {
-		text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+		text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 		if err != nil {
 			return nil, nil, nil, err
 		} else {
@@ -370,7 +370,7 @@ func ChangedTaskDeadlineAct(message *tgbotapi.Message, conn *sqlx.DB, tguserID i
 				if err := db.ChangeTaskDeadline(conn, tguserID, taskID, fmtDeadline); err != nil {
 					return nil, nil, nil, err
 				} else {
-					text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+					text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 					if err != nil {
 						return nil, nil, nil, err
 					} else {
@@ -484,7 +484,7 @@ func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 		return nil, nil, nil, err
 	}
 
-	text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+	text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 	if err != nil {
 		return nil, nil, nil, err
 	} else {
@@ -532,7 +532,7 @@ func Complete(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID int
 		return nil, nil, nil, err
 	}
 
-	text, err := db.ViewTask(conn, categoryID, taskID, tguserID)
+	text, _, err := db.ViewTask("change", conn, categoryID, taskID, tguserID)
 	if err != nil {
 		return nil, nil, nil, err
 	} else {
