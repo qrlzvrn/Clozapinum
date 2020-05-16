@@ -1,7 +1,6 @@
 package bd
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -11,123 +10,128 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/qrlzvrn/Clozapinum/config"
-	"github.com/qrlzvrn/Clozapinum/erro"
+	"github.com/qrlzvrn/Clozapinum/errorz"
 )
 
-func ConnectToBD() (*sqlx.DB, erro.Err) {
+func ConnectToBD() (*sqlx.DB, error) {
 	dbConf, err := config.NewDBConf()
 	if err != nil {
 		return nil, err
 	}
 	dbInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", dbConf.Host, dbConf.Port, dbConf.Username, dbConf.Password, dbConf.Name)
 
-	if db, err := sqlx.Connect("postgres", dbInfo); err != nil {
-		e := erro.NewDBConnError("ConnectToBD", err)
-		return nil, e
-	} else {
-		return db, nil
+	db, err := sqlx.Connect("postgres", dbInfo)
+	if err != nil {
+		err := errorz.NewErr("failed connecting to database")
+		return nil, err
 	}
+
+	return db, nil
 }
 
-func CreateUser(db *sqlx.DB, tguserID int) erro.Err {
+func CreateUser(db *sqlx.DB, tguserID int) error {
 	tx := db.MustBegin()
 	tx.MustExec("INSERT INTO tguser (id, state) VALUES ($1, $2)", tguserID, "borned")
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("CreateUser", err)
-		return e
+		err := errorz.NewErr("failed to create a new user")
+		return err
 	}
 	return nil
 }
 
-func CheckUser(db *sqlx.DB, tguserID int) (bool, erro.Err) {
+func CheckUser(db *sqlx.DB, tguserID int) (bool, error) {
 	var isExist bool
 	err := db.QueryRow("SELECT exists (select 1 from tguser where id=$1)", tguserID).Scan(&isExist)
 	if err != nil {
-		e := erro.NewWrapError("CheckUser", err)
-		return false, e
+		err := errorz.NewErr("failed to verify user existence")
+		return false, err
 	}
 	return isExist, nil
 }
 
-func ChangeUserState(db *sqlx.DB, tguserID int, state string) erro.Err {
+func ChangeUserState(db *sqlx.DB, tguserID int, state string) error {
 	tx := db.MustBegin()
 	tx.MustExec("UPDATE tguser SET state=$1 where id=$2", state, tguserID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("CheckUserState", err)
-		return e
+		err := errorz.NewErr("failed to change user state")
+		return err
 	}
 	return nil
 }
 
-func ChangeSelectCategory(db *sqlx.DB, tguserID int, categoryID int) erro.Err {
+func ChangeSelectCategory(db *sqlx.DB, tguserID int, categoryID int) error {
 	tx := db.MustBegin()
 	tx.MustExec("UPDATE tguser SET select_category=$1 where id=$2", categoryID, tguserID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("ChangeSelectCategory", err)
-		return e
+		err := errorz.NewErr("failed to change the selected category")
+		return err
 	}
 	return nil
 }
 
-func ChangeSelectTask(db *sqlx.DB, tguserID int, taskID int) erro.Err {
+func ChangeSelectTask(db *sqlx.DB, tguserID int, taskID int) error {
 	tx := db.MustBegin()
 	tx.MustExec("UPDATE tguser SET select_task=$1 where id=$2", taskID, tguserID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("ChangeSelectTask", err)
-		return e
+		err := errorz.NewErr("failed to change the selected task")
+		return err
 	}
 	return nil
 }
 
-func CheckUserState(db *sqlx.DB, tguserID int) (string, erro.Err) {
+func CheckUserState(db *sqlx.DB, tguserID int) (string, error) {
 	var state string
 	err := db.QueryRow("SELECT state FROM tguser WHERE id=$1", tguserID).Scan(&state)
 	if err != nil {
-		e := erro.NewWrapError("CheckUserState", err)
-		return "", e
+		err := errorz.NewErr("failed to get user state")
+		return "", err
 	}
 	return state, nil
 }
 
-func CheckSelectTaskID(db *sqlx.DB, tguserID int) (int, erro.Err) {
+func CheckSelectTaskID(db *sqlx.DB, tguserID int) (int, error) {
 	var taskID int
 	err := db.QueryRow("SELECT select_task FROM tguser WHERE id=$1", tguserID).Scan(&taskID)
 	if err != nil {
-		e := erro.NewWrapError("CheckSelectTaskID", err)
-		return 0, e
+		err := errorz.NewErr("failed to get id of selected task")
+		return 0, err
 	}
 	return taskID, nil
 }
 
-func CheckSelectCategoryID(db *sqlx.DB, tguserID int) (int, erro.Err) {
+func CheckSelectCategoryID(db *sqlx.DB, tguserID int) (int, error) {
 	var categoryID int
 	err := db.QueryRow("SELECT select_category FROM tguser WHERE id=$1", tguserID).Scan(&categoryID)
 	if err != nil {
-		e := erro.NewWrapError("CheckSelectCategory", err)
-		return 0, e
+		err := errorz.NewErr("failed get id of selected task")
+		return 0, err
 	}
 	return categoryID, nil
 }
 
-func CreateCategory(db *sqlx.DB, tguserID int, name string) erro.Err {
+func CreateCategory(db *sqlx.DB, tguserID int, name string) error {
 	var categoryID int
 	tx := db.MustBegin()
 	tx.MustExec("INSERT INTO category (name) VALUES ($1)", name)
 	err := tx.QueryRow("SELECT id FROM category where name=$1", name).Scan(&categoryID)
 	if err != nil {
-		e := erro.NewWrapError("CreateCategory", err)
-		return e
+		err := errorz.NewErr("failed to get id of just created category")
+		return err
 	}
 	tx.MustExec("INSERT INTO category_tguser (category_id, tguser_id) VALUES ($1, $2)", categoryID, tguserID)
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		err := errorz.NewErr("failed to create a new category")
+		return err
+	}
 	return nil
 }
 
-func DeleteCategory(db *sqlx.DB, tguserID int, categoryID int) erro.Err {
+func DeleteCategory(db *sqlx.DB, tguserID int, categoryID int) error {
 	tx := db.MustBegin()
 	tx.MustExec("UPDATE tguser SET select_category=NULL WHERE id=$1", tguserID)
 	tx.MustExec("UPDATE tguser SET select_task=NULL WHERE id=$1", tguserID)
@@ -136,19 +140,19 @@ func DeleteCategory(db *sqlx.DB, tguserID int, categoryID int) erro.Err {
 	tx.MustExec("DELETE FROM category WHERE id=$1", categoryID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("DeleteCategory", err)
-		return e
+		err := errorz.NewErr("failed to delete category")
+		return err
 	}
 
 	return nil
 }
 
-func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, erro.Err) {
+func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, error) {
 	var isExist bool
 	err := db.QueryRow("SELECT exists (SELECT 1 FROM category_tguser WHERE tguser_id=$1)", tguserID).Scan(&isExist)
 	if err != nil {
-		e := erro.NewWrapError("ListAllCategories", err)
-		return nil, e
+		err := errorz.NewErr("Error accessing the database")
+		return nil, err
 	}
 
 	if isExist == false {
@@ -157,8 +161,8 @@ func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, erro.Err) {
 
 	rows, err := db.Query("SELECT category.id, category.name FROM category LEFT JOIN category_tguser ON category_tguser.category_id=category.id WHERE category_tguser.tguser_id=$1", tguserID)
 	if err != nil {
-		e := erro.NewWrapError("ListAllCategories", err)
-		return nil, e
+		err := errorz.NewErr("failed to get the list of categories")
+		return nil, err
 	}
 
 	allCategories := [][]string{}
@@ -169,8 +173,8 @@ func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, erro.Err) {
 
 		err := rows.Scan(&id, &name)
 		if err != nil {
-			e := erro.NewWrapError("ListAllCategories", err)
-			return nil, e
+			err := errorz.NewErr("failed to get the list of categories")
+			return nil, err
 		}
 
 		allCategories = append(allCategories, []string{strconv.Itoa(id), name})
@@ -179,7 +183,7 @@ func ListAllCategories(db *sqlx.DB, tguserID int) ([][]string, erro.Err) {
 	return allCategories, nil
 }
 
-func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
+func CreateTask(db *sqlx.DB, categoryID int, text string) error {
 
 	sliceTaskText := strings.SplitN(text, "\n\n", 3)
 	var fmtDeadline string
@@ -193,15 +197,13 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 		//Проверяем не попал ли deadline в title
 		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
 		if titleErr == true {
-			err := errors.New("TitleIsNotDeadline")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("TitleIsNotDeadline")
+			return err
 		}
 		//Проверяем введен ли title
 		if title == "" {
-			err := errors.New("NilTitle")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("NilTitle")
+			return err
 		}
 
 		//Проверяем правильность введения deadline
@@ -213,15 +215,13 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 				layout := "02.01.2006"
 				t, err := time.Parse(layout, fmtDeadline)
 				if err != nil {
-					err := errors.New("DateErr")
-					e := erro.NewWrapError("CreateTask", err)
-					return e
+					err := errorz.NewErr("DateErr")
+					return err
 				}
 				fmtDeadline = t.Format("01-02-2006")
 			} else {
-				err := errors.New("DateErr")
-				e := erro.NewWrapError("CreateTask", err)
-				return e
+				err := errorz.NewErr("DateErr")
+				return err
 			}
 
 		} else {
@@ -229,9 +229,8 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 			layout := "02.01.2006"
 			t, err := time.Parse(layout, deadline)
 			if err != nil {
-				err := errors.New("DateErr")
-				e := erro.NewWrapError("CreateTask", err)
-				return e
+				err := errorz.NewErr("DateErr")
+				return err
 			}
 			fmtDeadline = t.Format("01-02-2006")
 		}
@@ -242,7 +241,11 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 
 		tx := db.MustBegin()
 		tx.MustExec("INSERT INTO task(title, complete, category_id, description, deadline) VALUES ($1, $2, $3, $4, $5)", title, false, categoryID, description, fmtDeadline)
-		tx.Commit()
+		err := tx.Commit()
+		if err != nil {
+			err := errorz.NewErr("failed to create a new task")
+			return err
+		}
 
 	} else if len == 2 {
 		var deadline string
@@ -254,15 +257,13 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 		//Проверяем не попал ли deadline в title
 		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
 		if titleErr == true {
-			err := errors.New("TitleIsNotDeadline")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("TitleIsNotDeadline")
+			return err
 		}
 		//Проверяем введен ли title
 		if title == "" {
-			err := errors.New("NilTitle")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("NilTitle")
+			return err
 		}
 
 		isItDeadline, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, something)
@@ -274,9 +275,8 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 			layout := "02.01.2006"
 			t, err := time.Parse(layout, deadline)
 			if err != nil {
-				err := errors.New("DateErr")
-				e := erro.NewWrapError("CreateTask", err)
-				return e
+				err := errorz.NewErr("DateErr")
+				return err
 			}
 			fmtDeadline = t.Format("01-02-2006")
 		} else if isItDeadline == false {
@@ -291,9 +291,8 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 				layout := "02.01.2006"
 				t, err := time.Parse(layout, fmtDeadline)
 				if err != nil {
-					err := errors.New("DateErr")
-					e := erro.NewWrapError("CreateTask", err)
-					return e
+					err := errorz.NewErr("DateErr")
+					return err
 				}
 				fmtDeadline = t.Format("01-02-2006")
 
@@ -306,16 +305,19 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 			layout := "02.01.2006"
 			t, err := time.Parse(layout, deadline)
 			if err != nil {
-				err := errors.New("DateErr")
-				e := erro.NewWrapError("CreateTask", err)
-				return e
+				err := errorz.NewErr("DateErr")
+				return err
 			}
 			fmtDeadline = t.Format("01-02-2006")
 
 		}
 		tx := db.MustBegin()
 		tx.MustExec("INSERT INTO task(title, complete, category_id, description, deadline) VALUES ($1, $2, $3, $4, $5)", title, false, categoryID, description, fmtDeadline)
-		tx.Commit()
+		err := tx.Commit()
+		if err != nil {
+			err := errorz.NewErr("failed to create a new task")
+			return err
+		}
 
 	} else if len == 1 {
 		title := sliceTaskText[0]
@@ -324,15 +326,13 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 		//Проверяем не попал ли deadline в title
 		titleErr, _ := regexp.MatchString(`^\d{2}(\.)\d{2}(\.)\d{4}$`, title)
 		if titleErr == true {
-			err := errors.New("TitleIsNotDeadline")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("TitleIsNotDeadline")
+			return err
 		}
 		//Проверяем введен ли title
 		if title == "" {
-			err := errors.New("NilTitle")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("NilTitle")
+			return err
 		}
 
 		deadline = "01.01.1998"
@@ -340,21 +340,24 @@ func CreateTask(db *sqlx.DB, categoryID int, text string) erro.Err {
 		layout := "02.01.2006"
 		t, err := time.Parse(layout, deadline)
 		if err != nil {
-			err := errors.New("DateErr")
-			e := erro.NewWrapError("CreateTask", err)
-			return e
+			err := errorz.NewErr("DateErr")
+			return err
 		}
 		fmtDeadline = t.Format("01-02-2006")
 
 		description = "-"
 		tx := db.MustBegin()
 		tx.MustExec("INSERT INTO task(title, complete, category_id, description, deadline) VALUES ($1, $2, $3, $4, $5)", title, false, categoryID, description, fmtDeadline)
-		tx.Commit()
+		err = tx.Commit()
+		if err != nil {
+			err := errorz.NewErr("failed to create a new task")
+			return err
+		}
 	}
 	return nil
 }
 
-func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, int, erro.Err) {
+func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int) (string, int, error) {
 
 	var text string
 
@@ -370,8 +373,8 @@ func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int
 		tx := db.MustBegin()
 		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
 		if err != nil {
-			e := erro.NewWrapError("ViewTask", err)
-			return "", 0, e
+			err := errorz.NewErr("failed to get task")
+			return "", 0, err
 		}
 		tx.Commit()
 
@@ -379,8 +382,8 @@ func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int
 		tx := db.MustBegin()
 		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 AND id=$2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
 		if err != nil {
-			e := erro.NewWrapError("ViewTask", err)
-			return "", 0, e
+			err := errorz.NewErr("failed to get task")
+			return "", 0, err
 		}
 		tx.Commit()
 
@@ -422,52 +425,52 @@ func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int
 	return text, realTaskID, nil
 }
 
-func ChangeTaskTitle(db *sqlx.DB, tguserID int, taskID int, text string) erro.Err {
+func ChangeTaskTitle(db *sqlx.DB, tguserID int, taskID int, text string) error {
 	tx := db.MustBegin()
 	db.MustExec("UPDATE task SET title=$1 WHERE id=$2", text, taskID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("ChangeTaskTitle", err)
-		return e
+		err := errorz.NewErr("failed to change task title")
+		return err
 	}
 	return nil
 }
 
-func ChangeTaskDescription(db *sqlx.DB, tguserID int, taskID int, text string) erro.Err {
+func ChangeTaskDescription(db *sqlx.DB, tguserID int, taskID int, text string) error {
 	tx := db.MustBegin()
 	db.MustExec("UPDATE task SET description=$1 WHERE id=$2", text, taskID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("ChangeTaskDescription", err)
-		return e
+		err := errorz.NewErr("failed to change task description")
+		return err
 	}
 	return nil
 }
 
-func ChangeTaskDeadline(db *sqlx.DB, tguserID int, taskID int, text string) erro.Err {
+func ChangeTaskDeadline(db *sqlx.DB, tguserID int, taskID int, text string) error {
 	tx := db.MustBegin()
 	db.MustExec("UPDATE task SET deadline=$1 WHERE id=$2", text, taskID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("ChangeTaskDeadline", err)
-		return e
+		err := errorz.NewErr("failed to change task deadline")
+		return err
 	}
 	return nil
 }
 
-func ListTasks(db *sqlx.DB, categoryID int) (string, erro.Err) {
+func ListTasks(db *sqlx.DB, categoryID int) (string, error) {
 	var isExist string
 	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1)", categoryID).Scan(&isExist)
 	if err != nil {
-		e := erro.NewWrapError("ListTasks", err)
-		return "", e
+		err := errorz.NewErr("failed to verify the existence of tasks in this category")
+		return "", err
 	}
 	tasks := [][]string{}
 	if isExist == "true" {
 		rows, err := db.Query("SELECT title, complete FROM task WHERE category_id=$1 ORDER BY complete", categoryID)
 		if err != nil {
-			e := erro.NewWrapError("ListTasks", err)
-			return "", e
+			err := errorz.NewErr("failed to get task list")
+			return "", err
 		}
 
 		id := 1
@@ -505,48 +508,48 @@ func ListTasks(db *sqlx.DB, categoryID int) (string, erro.Err) {
 	return allTasksMsg, nil
 }
 
-func DeleteTask(db *sqlx.DB, taskID int, tguserID int) erro.Err {
+func DeleteTask(db *sqlx.DB, taskID int, tguserID int) error {
 	tx := db.MustBegin()
 	tx.MustExec("UPDATE tguser SET select_task=NULL WHERE id=$1", tguserID)
 	tx.MustExec("DELETE FROM task WHERE id=$1", taskID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("DeleteTask", err)
-		return e
+		err := errorz.NewErr("failed to delete the task")
+		return err
 	}
 	return nil
 }
 
-func CompleteTask(db *sqlx.DB, taskID int) erro.Err {
+func CompleteTask(db *sqlx.DB, taskID int) error {
 	tx := db.MustBegin()
 	tx.MustExec("UPDATE task SET complete=$1 WHERE id=$2", true, taskID)
 	err := tx.Commit()
 	if err != nil {
-		e := erro.NewWrapError("CompleteTask", err)
-		return e
+		err := errorz.NewErr("failed to complete the task")
+		return err
 	}
 	return nil
 }
 
-func IsComplete(db *sqlx.DB, taskID int) (bool, erro.Err) {
+func IsComplete(db *sqlx.DB, taskID int) (bool, error) {
 	var isComplete bool
 	tx := db.MustBegin()
 	err := tx.QueryRow("SELECT complete FROM task where id=$1", taskID).Scan(&isComplete)
 	if err != nil {
-		e := erro.NewWrapError("IsComplete", err)
-		return false, e
+		err := errorz.NewErr("failed to verify if task completed")
+		return false, err
 	}
 	tx.Commit()
 	return isComplete, nil
 }
 
-func IsTaskExist(db *sqlx.DB, categoryID int, taskID int) (bool, erro.Err) {
+func IsTaskExist(db *sqlx.DB, categoryID int, taskID int) (bool, error) {
 	var isExist bool
 	taskID--
 	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2)", categoryID, taskID).Scan(&isExist)
 	if err != nil {
-		e := erro.NewWrapError("IsTaskExist", err)
-		return false, e
+		err := errorz.NewErr("failed to verify the existence of the task")
+		return false, err
 	}
 	return isExist, nil
 }
