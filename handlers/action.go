@@ -520,9 +520,9 @@ func BackToTask(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID i
 
 	if isComplete == false {
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.TaskKeyboard)
+	} else {
+		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CompletedTaskKeyboard)
 	}
-
-	newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CompletedTaskKeyboard)
 
 	msg = nil
 	newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Задача успешно выполнена!\n\n"+text)
@@ -738,6 +738,7 @@ func ViewCategory(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguserID
 		msg = nil
 		newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.CreateTaskKeyboard)
 		newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, "Пока что категория пуста. Давайте добавим первую задачу.\n\nВведите название задачи:")
+		return msg, newKeyboard, newText, nil
 	}
 
 	msg = nil
