@@ -3,11 +3,10 @@ package handlers
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	db "github.com/qrlzvrn/Clozapinum/db"
-	"github.com/qrlzvrn/Clozapinum/erro"
 )
 
 //MessageHandler - перехватывает простые текстовые сообщения и выдает один или несколько конфигов ответных сообщений
-func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
+func MessageHandler(message *tgbotapi.Message) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
 
 	if message.IsCommand() {
 		cmd := message.Command()

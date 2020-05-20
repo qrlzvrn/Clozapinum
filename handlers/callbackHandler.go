@@ -3,11 +3,10 @@ package handlers
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	db "github.com/qrlzvrn/Clozapinum/db"
-	"github.com/qrlzvrn/Clozapinum/erro"
 )
 
 //CallbackHandler - перехватывает сообщения от нажатий на inlineKeyboard и выдает один или несколько конфигов ответных сообщений
-func CallbackHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, erro.Err) {
+func CallbackHandler(callbackQuery *tgbotapi.CallbackQuery) (tgbotapi.Chattable, tgbotapi.Chattable, tgbotapi.Chattable, error) {
 	tguserID := callbackQuery.From.ID
 	conn, err := db.ConnectToBD()
 	if err != nil {
