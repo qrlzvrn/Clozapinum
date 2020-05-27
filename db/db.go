@@ -371,7 +371,7 @@ func ViewTask(mode string, db *sqlx.DB, categoryID int, taskID int, tguserID int
 	if mode == "select" {
 		taskID--
 		tx := db.MustBegin()
-		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
+		err := tx.QueryRow("SELECT id, title, description, complete, deadline-now()::date as deadline FROM task WHERE category_id=$1 ORDER BY id LIMIT 1 OFFSET $2", categoryID, taskID).Scan(&realTaskID, &title, &description, &complete, &deadline)
 		if err != nil {
 			err := errorz.NewErr("failed to get task")
 			return "", 0, err
@@ -467,7 +467,7 @@ func ListTasks(db *sqlx.DB, categoryID int) (string, error) {
 	}
 	tasks := [][]string{}
 	if isExist == "true" {
-		rows, err := db.Query("SELECT title, complete FROM task WHERE category_id=$1 ORDER BY complete", categoryID)
+		rows, err := db.Query("SELECT title, complete FROM task WHERE category_id=$1 ORDER BY id", categoryID)
 		if err != nil {
 			err := errorz.NewErr("failed to get task list")
 			return "", err
@@ -546,7 +546,7 @@ func IsComplete(db *sqlx.DB, taskID int) (bool, error) {
 func IsTaskExist(db *sqlx.DB, categoryID int, taskID int) (bool, error) {
 	var isExist bool
 	taskID--
-	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1 ORDER BY complete LIMIT 1 OFFSET $2)", categoryID, taskID).Scan(&isExist)
+	err := db.QueryRow("SELECT exists (SELECT 1 FROM task WHERE category_id=$1 ORDER BY id LIMIT 1 OFFSET $2)", categoryID, taskID).Scan(&isExist)
 	if err != nil {
 		err := errorz.NewErr("failed to verify the existence of the task")
 		return false, err
