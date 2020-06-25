@@ -485,6 +485,18 @@ func BackToListTasks(callbackQuery *tgbotapi.CallbackQuery, conn *sqlx.DB, tguse
 		return nil, nil, nil, err
 	}
 
+	// Если категория пуста, то скорее всего мы пытаемся
+	// отменить создание самой первой задачи,
+	// тогда мы должны вернуться к списку категорий, а не списку задач в категории
+	if allTasks == "" {
+		msg, newKeyboard, newText, err = BackToAllCategoriesKeyboard(callbackQuery, conn, tguserID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		return msg, newKeyboard, newText, nil
+	}
+
 	msg = nil
 	newKeyboard = tgbotapi.NewEditMessageReplyMarkup(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, keyboard.SelectedCategoryKeyboard)
 	newText = tgbotapi.NewEditMessageText(callbackQuery.Message.Chat.ID, callbackQuery.Message.MessageID, allTasks)
