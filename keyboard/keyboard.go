@@ -29,7 +29,7 @@ func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboa
 // и предложения ввести название новой задачи
 var CreateTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToAllCategoriesKeyboard"),
+		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToListTasks"),
 	),
 )
 
@@ -38,7 +38,7 @@ var CreateTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 // когда пользователю предлагается ввести название новой категории
 var CreateCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToAddKeyboard"),
+		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToAllCategoriesKeyboard"),
 	),
 )
 
