@@ -7,38 +7,36 @@ else
 	echo "Сконфигурируем базу данных"
 
     dbusername_str="POSTGRES_USER="
-	echo -n "Введите имя пользователя базы данных: "
-	read dbusername
+	read -p "Введите имя пользователя базы данных: " dbusername
+
 
 
 
 	ask_password() {
 		dbpassword_str="POSTGRES_PASSWORD="
-		echo -n "Введите пароль пользователя базы данных: "
-		read -s dbpassword
+		read -s -p "Введите пароль пользователя базы данных: " dbpassword
         echo ""
 
-		echo -n "Повторите пароль пользователя базы данных: "
-		read -s dbpassword_check
+		read -s -p "Повторите пароль пользователя базы данных: " dbpassword_check
         echo ""
-			if [[ $dbpassword != $dbpassword_check ]]
+
+		if [[ "$dbpassword" != "$dbpassword_check" ]]
+		then
+			if [[ "10#$dbpassword" -ne "10#$dbpassword_check" ]]
 			then
-				if [[ $dbpassword -ne $dbpassword_check ]]
-				then
-					echo "Ваши пароли не совпадают"
-					ask_password
-				fi
-
 				echo "Ваши пароли не совпадают"
 				ask_password
 			fi
-		}
+			echo "Ваши пароли не совпадают"
+			ask_password
+		fi
+	}
 
 	ask_password
 
 	dbname_str="POSTGRES_DB="
-	echo -n "Введите название базы данных: "
-	read dbname
+	read -p "Введите название базы данных: " dbname
+	
 
 	if [ -d .env ]
 	then
@@ -64,27 +62,22 @@ then
 	echo "файл конфигурации бота уже существует"
 else
 	token_str="TELEGRAM_APITOKEN="
-	echo -n "Введите токен бота: "
-	read token
+	read -p "Введите токен бота: " token
 
 	fullchain_str="SSL_FULLCHAIN="
-	echo -n  "Укажите путь к fullchain.pem: "
-	read -e fullchain
+	read -e -p "Укажите путь к fullchain.pem: " fullchain
 
 	privkey_str="SSL_PRIVKEY="
-	echo -n "Укажите путь к privkey.pem: "
-	read -e privkey
+	read -e -p "Укажите путь к privkey.pem: " privkey
 
 
 
 
 	db_host_str="DB_HOST="
-	echo -n "Введите адрес или домен базы данных: "
-	read host
+	read -p "Введите адрес или домен базы данных: " host
 
 	db_port_str="DB_PORT="
-	echo -n "Введите порт базы данных: "
-	read port
+	read -p "Введите порт базы данных: " port
 
 	db_username_str="DB_USERNAME="
 	db_password_str="DB_PASSWORD="

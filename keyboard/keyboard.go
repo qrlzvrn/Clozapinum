@@ -4,8 +4,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-//CreateKeyboarWithAllCategories - генерирует клавиатуру со всеми переданными категориями
-//появляется после нажатия на Просмотреть или на связку Добавить + Задачу
+// CreateKeyboarWithAllCategories - генерирует клавиатуру со всеми переданными категориями
 func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboardMarkup {
 	AllCategoriesKeyboard := tgbotapi.InlineKeyboardMarkup{}
 	for _, category := range categories {
@@ -24,26 +23,21 @@ func CreateKeyboarWithAllCategories(categories [][]string) tgbotapi.InlineKeyboa
 	return AllCategoriesKeyboard
 }
 
-// CreateTaskKeyboard - клавиатура отмены создания задачи
-// появляется после выбора категории в которой польователь хочет создать задачу
-// и предложения ввести название новой задачи
+// CreateTaskKeyboard - клавиатура создания задачи
 var CreateTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToListTasks"),
 	),
 )
 
-// CreateCategoryKeyboard - клавиатура отмены создания категории
-// появляется после комбинации Создать + Категория
-// когда пользователю предлагается ввести название новой категории
+// CreateCategoryKeyboard - клавиатура создания категории
 var CreateCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Отмена", "backToAllCategoriesKeyboard"),
 	),
 )
 
-//SelectedCategoryKeyboard - клавиатура позволяющая либо выбрать задчу, либо вернуться назад
-//появляется после нажатия на Просмотреть
+// SelectedCategoryKeyboard - клавиатура просмотра конкретной категории
 var SelectedCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Выбрать", "choose"),
@@ -55,8 +49,8 @@ var SelectedCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-//DeleteCategoryKeyboard - клавиатура позволяющая согласиться с удалением категории
-//или отказаться
+// DeleteCategoryKeyboard - клавиатура позволяющая согласиться с удалением категории
+// или отказаться
 var DeleteCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Да", "deleteCategory"),
@@ -64,16 +58,15 @@ var DeleteCategoryKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-//SelectTaskKeyboard - клавиатура позволяющая отказаться от приглашения ввести id задачи
-//после нажатия на кнопку выбрать в списке всех задач выбранной категории
+// SelectTaskKeyboard - клавиатура выбора задачи,
+// позволяющая отказаться от приглашения ввести id задачи
 var SelectTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToListTasks"),
 	),
 )
 
-//TaskKeyboard - клавиатура с действиями над задачей
-//появляется после нажатия на Просмотреть и введения id задачи
+// TaskKeyboard - клавиатура с действиями над задачей
 var TaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Выполнить", "complete"),
@@ -85,9 +78,7 @@ var TaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-//CompletedTaskKeyboard - клавиатура с действиями над задачей
-//появляется после нажатия на Просмотреть и введения id задачи,
-//если задача уже выполненна
+// CompletedTaskKeyboard - клавиатура с действиями над уже выполненной задачей
 var CompletedTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Изменить", "change"),
@@ -98,8 +89,8 @@ var CompletedTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-//ChangeTaskKeyboard - клавиатура редактирования задачи
-//появляется после комбинации Просмотреть + введения id + Измнить
+// ChangeTaskKeyboard - клавиатура, позволяющая выбрать,
+// что конкретно изменить в данной задаче
 var ChangeTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Заголовок", "changeTitle"),
@@ -111,6 +102,8 @@ var ChangeTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
+// ChangeSomethingInTaskKeyboard - клавиатура редактирования задачи,
+// позволяет отменить редактирование задачи
 var ChangeSomethingInTaskKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Назад", "backToTask"),
